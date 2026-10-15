@@ -4,3 +4,5 @@ uvicorn[standard]
 pyyaml
 python-dotenv
 litellm>=1.83.7,<1.97.0   # cognee 1.6.4 range
+psycopg[binary]>=3.2,<4    # persistent hosted ledger; imported only with DATABASE_URL
+cognee==1.6.4            # C7 memory and explanations, including Cognee Cloud on Heroku

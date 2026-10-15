@@ -17,6 +17,7 @@ The model never calls a Stripe write API; its only tool is propose_purchase().
 import argparse
 import asyncio
 import glob
+import hashlib
 import json
 import os
 import shutil
@@ -34,7 +35,8 @@ from policy import evaluate, load_policy
 
 load_dotenv()
 for _s in (sys.stdout, sys.stderr):  # Windows pipes default to cp1252, which can't print → ✓ 📨 £
-    _s.reconfigure(encoding="utf-8", errors="replace")
+    if hasattr(_s, "reconfigure"):
+        _s.reconfigure(encoding="utf-8", errors="replace")
 stripe.api_key = os.environ.get("STRIPE_SECRET_KEY", "")
 POLICY = load_policy()
 CURRENCY = POLICY.get("currency", "gbp")
@@ -42,6 +44,8 @@ STATE_PATH = os.path.join(ledger.DIR, "stripe_state.json")
 
 
 def state():
+    if os.getenv("STRIPE_CARD_ID"):
+        return {"card_id": os.environ["STRIPE_CARD_ID"], "cardholder_id": os.getenv("STRIPE_CARDHOLDER_ID")}
     with open(STATE_PATH) as f:
         return json.load(f)
 
@@ -97,21 +101,25 @@ def approve(intent_id, approver, note=""):
     return res, rec
 
 
-def create_test_authorization(*, amount, currency, card, merchant_name, category):
+def create_test_authorization(*, amount, currency, card, merchant_name, category, idempotency_key=None):
+    if not stripe.api_key or not stripe.api_key.startswith(("sk_test_", "rk_test_")):
+        raise RuntimeError("Treasurer only executes Stripe test-mode transactions.")
     params = dict(amount=amount, currency=currency, card=card,
                   merchant_data={"name": merchant_name, "category": category, "city": "London", "country": "GB"})
     try:
-        auth = stripe.issuing.Authorization.TestHelpers.create(**params)
+        auth = stripe.issuing.Authorization.TestHelpers.create(**params, **({"idempotency_key": idempotency_key} if idempotency_key else {}))
     except AttributeError:
-        auth = stripe.StripeClient(stripe.api_key).test_helpers.issuing.authorizations.create(params)
+        options = {"idempotency_key": idempotency_key} if idempotency_key else None
+        auth = stripe.StripeClient(stripe.api_key).test_helpers.issuing.authorizations.create(params, options=options)
     return auth.to_dict()  # stripe 16 objects are not dicts; callers use .get()
 
 
 def capture_authorization(auth_id):
+    options = {"idempotency_key": "treasurer-capture-" + auth_id}
     try:
-        return stripe.issuing.Authorization.TestHelpers.capture(auth_id)
+        return stripe.issuing.Authorization.TestHelpers.capture(auth_id, **options)
     except AttributeError:
-        return stripe.StripeClient(stripe.api_key).test_helpers.issuing.authorizations.capture(auth_id)
+        return stripe.StripeClient(stripe.api_key).test_helpers.issuing.authorizations.capture(auth_id, options=options)
 
 
 def execute(intent_id):
@@ -121,7 +129,8 @@ def execute(intent_id):
     card = state()["card_id"]
     print(f"→ using card {card}: {it['merchant']} {gbp(it['amount'])} ({it['category']})")
     auth = create_test_authorization(amount=it["amount"], currency=it["currency"], card=card,
-                                     merchant_name=it["merchant"], category=it["category"])
+                                     merchant_name=it["merchant"], category=it["category"],
+                                     idempotency_key="treasurer-intent-" + intent_id)
     hist = auth.get("request_history") or []
     reason = hist[-1].get("reason") if hist else None
     ledger.update_intent(intent_id, authorization_id=auth["id"])
@@ -173,15 +182,27 @@ def parse_request(text):
     return None
 
 
+def inbox_fingerprint(path):
+    with open(path, "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()
+
+
+def inbox_files():
+    """Exclude requests already processed, even after a Heroku restart restores the files."""
+    return [path for path in sorted(glob.glob("inbox/*.txt"))
+            if not ledger.inbox_processed(os.path.basename(path), inbox_fingerprint(path))]
+
+
 def inbox(approver=None, interactive=True, only=None):
     os.makedirs("inbox/processed", exist_ok=True)
-    files = sorted(glob.glob("inbox/*.txt"))
+    files = inbox_files()
     if only is not None:  # the UI can pick specific emails
         files = [f for f in files if os.path.basename(f) in set(only)]
     if not files:
         print("inbox empty")
     for path in files:
         text = open(path, encoding="utf-8").read()
+        fingerprint = inbox_fingerprint(path)
         print(f"\n📨 {os.path.basename(path)}")
         req = parse_request(text)
         origin = {"file": os.path.basename(path), "parsed_by": "form"}
@@ -196,10 +217,13 @@ def inbox(approver=None, interactive=True, only=None):
                                        currency=CURRENCY, intent_id=None, decision="decline", clause_ids=[],
                                        failed_clause="extraction", evidence={"origin": origin, "error": str(e)[:300]},
                                        policy_version=POLICY["_version"], stripe={})
+                ledger.mark_inbox_processed(os.path.basename(path), fingerprint)
                 shutil.move(path, os.path.join("inbox/processed", os.path.basename(path)))
                 continue
         amount = int(round(float(str(req["amount"]).replace("£", "").replace(",", "")) * 100))
         it, rec, res = propose(req["merchant"], req["category"], amount, req.get("reason", ""), origin=origin)
+        # Persist receipt before attempting a payment; a restarted dyno must not propose it again.
+        ledger.mark_inbox_processed(os.path.basename(path), fingerprint)
         print(f"policy: {res['decision'].upper()} clauses={','.join(res['clause_ids'])} failed={res['failed_clause']}")
         handle_intent(it, approver, interactive)
         shutil.move(path, os.path.join("inbox/processed", os.path.basename(path)))

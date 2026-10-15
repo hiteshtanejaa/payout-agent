@@ -1,0 +1,24 @@
+{
+  "name": "Treasurer",
+  "description": "A policy-gated Stripe Issuing test-mode spending demo with a persistent audit ledger.",
+  "stack": "heroku-24",
+  "buildpacks": [{"url": "heroku/python"}],
+  "formation": {"web": {"quantity": 1, "size": "basic"}},
+  "addons": [{"plan": "heroku-postgresql:essential-0"}],
+  "env": {
+    "PYTHONUNBUFFERED": {"value": "1"},
+    "DEMO_USERNAME": {"value": "demo"},
+    "DEMO_PASSWORD": {"description": "Shared password for the demo dashboard.", "generator": "secret"},
+    "STRIPE_SECRET_KEY": {"description": "Stripe TEST secret key (sk_test_...)."},
+    "STRIPE_WEBHOOK_SECRET": {"description": "Signing secret for this Heroku URL's Stripe test webhook; not the local CLI secret."},
+    "STRIPE_CARD_ID": {"description": "Existing funded Stripe test Issuing card (ic_...)."},
+    "STRIPE_ISSUING_WEBHOOK_SECRET": {"description": "Only needed if the Issuing authorization endpoint has a separate signing secret.", "required": false},
+    "LLM_API_KEY": {"description": "Key for the configured purchase-email extraction model."},
+    "LLM_MODEL": {"description": "Your working LiteLLM model ID; use the same model as the local demo."},
+    "MEMORY_CHECK": {"value": "cognee"},
+    "COGNEE_SERVICE_URL": {"description": "Your existing Cognee Cloud service URL."},
+    "COGNEE_API_KEY": {"description": "Your existing Cognee Cloud API key."},
+    "COGNEE_DATASET": {"value": "treasurer_heroku"},
+    "COGNEE_SYNC": {"value": "batch"}
+  }
+}

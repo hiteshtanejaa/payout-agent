@@ -1,1 +1,59 @@
-{}
+{
+  "int_84584340": {
+    "id": "int_84584340",
+    "ts": "2026-10-15T19:34:45+00:00",
+    "status": "executed",
+    "approval": null,
+    "authorization_id": "iauth_1UQuQJIWMjNofi5wZLj8dkka",
+    "proposal_decision_id": "d_a56d2b0c",
+    "merchant": "Figma",
+    "category": "computer_software_stores",
+    "amount": 12000,
+    "currency": "gbp",
+    "description": "Figma Professional seat for the new designer"
+  },
+  "int_36a2c9a2": {
+    "id": "int_36a2c9a2",
+    "ts": "2026-10-15T19:34:54+00:00",
+    "status": "executed",
+    "approval": {
+      "approver": "sarthak",
+      "ts": "2026-10-15T19:35:36+00:00",
+      "note": "",
+      "token": "apr_78465b56"
+    },
+    "authorization_id": "iauth_1UQuRAIWMjNofi5wKUywAcgl",
+    "proposal_decision_id": "d_b4161fce",
+    "merchant": "Google Ads",
+    "category": "advertising_services",
+    "amount": 35000,
+    "currency": "gbp",
+    "description": "Top-up for the October facade showcase campaign"
+  },
+  "int_18a529b2": {
+    "id": "int_18a529b2",
+    "ts": "2026-10-15T19:34:56+00:00",
+    "status": "declined",
+    "approval": null,
+    "authorization_id": null,
+    "proposal_decision_id": "d_6495a7e5",
+    "merchant": "Pret",
+    "category": "eating_places_restaurants",
+    "amount": 4250,
+    "currency": "gbp",
+    "description": "Team lunch"
+  },
+  "int_f3d2f923": {
+    "id": "int_f3d2f923",
+    "ts": "2026-10-15T19:35:00+00:00",
+    "status": "held",
+    "approval": null,
+    "authorization_id": null,
+    "proposal_decision_id": "d_ae4316fb",
+    "merchant": "Meta Ads",
+    "category": "advertising_services",
+    "amount": 15000,
+    "currency": "gbp",
+    "description": "Instagram retargeting advertising budget"
+  }
+}

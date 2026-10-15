@@ -8,10 +8,18 @@ Nothing slow happens before the response (no LLM, no Cognee). Memory sync is
 a background task after the JSON is already on its way back to Stripe.
 """
 import os
+import base64
+import binascii
+import secrets
+import threading
+import uuid
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import asynccontextmanager
+from urllib.parse import urlsplit
 
 import stripe
 from dotenv import load_dotenv
-from fastapi import BackgroundTasks, FastAPI, Request
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 import ledger
@@ -22,7 +30,31 @@ load_dotenv()
 stripe.api_key = os.environ["STRIPE_SECRET_KEY"]
 API_VERSION = os.getenv("STRIPE_API_VERSION") or stripe.api_version
 WEBHOOK_SECRET = os.environ["STRIPE_WEBHOOK_SECRET"]
+WEBHOOK_SECRETS = [WEBHOOK_SECRET]
+if os.getenv("STRIPE_ISSUING_WEBHOOK_SECRET"):
+    WEBHOOK_SECRETS.append(os.environ["STRIPE_ISSUING_WEBHOOK_SECRET"])
 POLICY = load_policy()
+DEMO_USERNAME = os.getenv("DEMO_USERNAME", "demo")
+DEMO_PASSWORD = os.getenv("DEMO_PASSWORD", "")
+
+
+def validate_hosted_config():
+    if not stripe.api_key.startswith(("sk_test_", "rk_test_")):
+        raise RuntimeError("Treasurer requires a Stripe test-mode API key.")
+    if os.getenv("DYNO"):
+        required = [name for name in ("DATABASE_URL", "DEMO_PASSWORD", "STRIPE_CARD_ID") if not os.getenv(name)]
+        if required:
+            raise RuntimeError("Missing hosted configuration: " + ", ".join(required))
+        if os.getenv("MEMORY_CHECK", "cognee") == "cognee":
+            if not os.getenv("COGNEE_SERVICE_URL") or not memory.HAVE_COGNEE:
+                raise RuntimeError("Hosted Cognee mode requires COGNEE_SERVICE_URL and the Cognee package.")
+
+
+@asynccontextmanager
+async def lifespan(app):
+    validate_hosted_config()
+    ledger.ensure_storage()
+    yield
 
 # Reasons Stripe gives when IT declined, before our code ran.
 STRIPE_DECLINE_CLAUSE = {
@@ -35,14 +67,42 @@ STRIPE_DECLINE_CLAUSE = {
     "cardholder_inactive": "cardholder inactive",
 }
 
-app = FastAPI(title="Treasurer gate")
+app = FastAPI(title="Treasurer gate", lifespan=lifespan)
+_WEBHOOK_LOCK = threading.RLock()
+
+
+@app.middleware("http")
+async def protect_demo(request: Request, call_next):
+    if request.url.path in ("/stripe/webhook", "/health"):
+        return await call_next(request)
+    if DEMO_PASSWORD:
+        valid = False
+        try:
+            scheme, encoded = request.headers.get("authorization", "").split(" ", 1)
+            name, password = base64.b64decode(encoded, validate=True).decode("utf-8").split(":", 1)
+            valid = (scheme.lower() == "basic"
+                     and secrets.compare_digest(name.encode(), DEMO_USERNAME.encode())
+                     and secrets.compare_digest(password.encode(), DEMO_PASSWORD.encode()))
+        except (ValueError, UnicodeError, binascii.Error):
+            pass
+        if not valid:
+            return JSONResponse({"detail": "Demo login required"}, status_code=401,
+                                headers={"WWW-Authenticate": 'Basic realm="Treasurer demo"', "Cache-Control": "no-store"})
+    origin = request.headers.get("origin")
+    if request.method not in ("GET", "HEAD", "OPTIONS") and origin:
+        origin_url = urlsplit(origin)
+        if (origin_url.scheme, origin_url.netloc) != (request.url.scheme, request.url.netloc):
+            return JSONResponse({"detail": "Use the Treasurer demo page to submit this action."}, status_code=403)
+    response = await call_next(request)
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 def _id(x):
     return x["id"] if isinstance(x, dict) else x
 
 
-def decide_authorization(auth: dict):
+def decide_authorization(auth: dict, event_id=None):
     """Given an issuing_authorization.request object, return (response_body, decision_record)."""
     pr = auth.get("pending_request") or {}
     amount = int(pr.get("amount") or auth.get("amount") or 0)
@@ -63,6 +123,8 @@ def decide_authorization(auth: dict):
         intent=intent,
         stage="authorization",
     )
+    if (intent or {}).get("approval"):
+        result["evidence"]["approval"] = intent["approval"]
     rec = ledger.record_decision(
         stage="authorization",
         decided_by="treasurer_webhook",
@@ -71,27 +133,32 @@ def decide_authorization(auth: dict):
         amount=amount,
         currency=currency,
         intent_id=intent["id"] if intent else None,
+        stripe_event_id=event_id,
         stripe={"authorization_id": auth.get("id"), "card_id": _id(auth.get("card"))},
         **result,
     )
     approved = result["decision"] == "approve"
     if intent:
         ledger.update_intent(intent["id"], status="executed" if approved else "declined", authorization_id=auth.get("id"))
-    body = {
-        "approved": approved,
+    return _authorization_body(rec), rec
+
+
+def _authorization_body(rec):
+    """Reconstruct the exact response from immutable audit evidence, including on retries."""
+    return {
+        "approved": rec["decision"] == "approve",
         "metadata": {
             "decision_id": rec["decision_id"],
-            "clause_ids": ",".join(result["clause_ids"]),
-            "failed_clause": result["failed_clause"] or "",
-            "intent_id": intent["id"] if intent else "",
-            "approver": ((intent or {}).get("approval") or {}).get("approver") or "",
-            "policy_version": result["policy_version"],
+            "clause_ids": ",".join(rec["clause_ids"]),
+            "failed_clause": rec["failed_clause"] or "",
+            "intent_id": rec.get("intent_id") or "",
+            "approver": ((rec.get("evidence") or {}).get("approval") or {}).get("approver") or "",
+            "policy_version": rec["policy_version"],
         },
     }
-    return body, rec
 
 
-def record_stripe_decline(auth: dict):
+def record_stripe_decline(auth: dict, event_id=None):
     """Stripe said no before our webhook was consulted. Log it so the trail is complete."""
     hist = auth.get("request_history") or []
     reason = (hist[-1].get("reason") if hist else None) or "unknown"
@@ -106,6 +173,7 @@ def record_stripe_decline(auth: dict):
         amount=int(auth.get("amount") or 0),
         currency=auth.get("currency"),
         intent_id=None,
+        stripe_event_id=event_id,
         decision="decline",
         clause_ids=[],
         failed_clause=STRIPE_DECLINE_CLAUSE.get(reason, reason),
@@ -118,49 +186,64 @@ def record_stripe_decline(auth: dict):
 @app.post("/stripe/webhook")
 async def webhook(request: Request, bg: BackgroundTasks):
     payload = await request.body()
-    try:
-        event = stripe.Webhook.construct_event(payload, request.headers.get("stripe-signature", ""), WEBHOOK_SECRET)
-    except Exception as e:
-        return JSONResponse({"error": str(e)}, status_code=400)
+    event = None
+    for secret in WEBHOOK_SECRETS:
+        try:
+            event = stripe.Webhook.construct_event(payload, request.headers.get("stripe-signature", ""), secret)
+            break
+        except (ValueError, stripe.SignatureVerificationError):
+            continue
+    if event is None or getattr(event, "livemode", False):
+        return JSONResponse({"error": "Invalid test-mode webhook"}, status_code=400)
 
     etype = event["type"]
     obj = event["data"]["object"].to_dict()  # stripe 16 objects are not dicts
 
-    if etype == "issuing_authorization.request":
-        body, rec = decide_authorization(obj)
-        bg.add_task(memory.remember_decision_sync, rec)
-        print(f"[gate] {rec['decision'].upper():8} {rec['merchant']} {rec['amount']} clauses={body['metadata']['clause_ids']} failed={rec['failed_clause']}")
-        return JSONResponse(body, headers={"Stripe-Version": API_VERSION})
+    with _WEBHOOK_LOCK:
+        previous = next((r for r in ledger.decisions() if r.get("stripe_event_id") == event["id"]), None)
+        if previous:
+            if etype == "issuing_authorization.request":
+                # Replay the original response, including metadata, rather than spending/counting twice.
+                return JSONResponse(_authorization_body(previous), headers={"Stripe-Version": API_VERSION})
+            return JSONResponse({"received": True})
 
-    if etype == "issuing_authorization.created" and not obj.get("approved"):
-        rec = record_stripe_decline(obj)
-        if rec:
+        if etype == "issuing_authorization.request":
+            body, rec = decide_authorization(obj, event_id=event["id"])
             bg.add_task(memory.remember_decision_sync, rec)
-            print(f"[stripe] DECLINED {rec['merchant']} {rec['amount']} reason={rec['decided_by']}")
+            print(f"[gate] {rec['decision'].upper():8} {rec['merchant']} {rec['amount']} clauses={body['metadata']['clause_ids']} failed={rec['failed_clause']}")
+            return JSONResponse(body, headers={"Stripe-Version": API_VERSION})
 
-    if etype == "issuing_transaction.created":
-        ledger.record_decision(
-            stage="capture",
-            decided_by="stripe",
-            merchant=(obj.get("merchant_data") or {}).get("name") or "",
-            category=(obj.get("merchant_data") or {}).get("category") or "",
-            amount=abs(int(obj.get("amount") or 0)),
-            currency=obj.get("currency"),
-            intent_id=None,
-            decision="captured",
-            clause_ids=[],
-            failed_clause=None,
-            evidence={"stage": "capture"},
-            policy_version=POLICY["_version"],
-            stripe={"transaction_id": obj.get("id"), "authorization_id": _id(obj.get("authorization")), "card_id": _id(obj.get("card"))},
-        )
+        if etype == "issuing_authorization.created" and not obj.get("approved"):
+            rec = record_stripe_decline(obj, event_id=event["id"])
+            if rec:
+                bg.add_task(memory.remember_decision_sync, rec)
+                print(f"[stripe] DECLINED {rec['merchant']} {rec['amount']} reason={rec['decided_by']}")
+
+        if etype == "issuing_transaction.created":
+            ledger.record_decision(
+                stage="capture",
+                decided_by="stripe",
+                merchant=(obj.get("merchant_data") or {}).get("name") or "",
+                category=(obj.get("merchant_data") or {}).get("category") or "",
+                amount=abs(int(obj.get("amount") or 0)),
+                currency=obj.get("currency"),
+                intent_id=None,
+                stripe_event_id=event["id"],
+                decision="captured",
+                clause_ids=[],
+                failed_clause=None,
+                evidence={"stage": "capture"},
+                policy_version=POLICY["_version"],
+                stripe={"transaction_id": obj.get("id"), "authorization_id": _id(obj.get("authorization")), "card_id": _id(obj.get("card"))},
+            )
 
     return JSONResponse({"received": True})
 
 
 @app.get("/health")
 def health():
-    return {"ok": True, "policy_version": POLICY["_version"], "api_version": API_VERSION}
+    return {"ok": True, "policy_version": POLICY["_version"], "api_version": API_VERSION,
+            "storage": "postgres" if os.getenv("DATABASE_URL") else "file", "test_mode": True}
 
 
 @app.get("/decisions")
@@ -191,6 +274,42 @@ from pydantic import BaseModel
 
 _ACTION_LOCK = _threading.Lock()
 _CARD_CACHE = {}
+_JOB_LOCK = _threading.RLock()
+_JOBS = {}
+_JOB_EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="treasurer-demo")
+
+
+def _submit(fn):
+    """One demo action at a time; return before the Heroku router's 30-second deadline."""
+    with _JOB_LOCK:
+        if any(j["status"] == "running" for j in _JOBS.values()):
+            raise HTTPException(409, "Another action is processing. Wait for it to finish.")
+        for key in list(_JOBS)[:-49]:
+            del _JOBS[key]
+        job_id = "job_" + uuid.uuid4().hex
+        _JOBS[job_id] = {"id": job_id, "status": "running", "result": None, "log": ""}
+
+    def go():
+        try:
+            result, log = _run(fn)
+            with _JOB_LOCK:
+                _JOBS[job_id].update(status="complete", result=result, log=log)
+        except Exception:
+            import traceback
+            traceback.print_exc()
+            with _JOB_LOCK:
+                _JOBS[job_id].update(status="error", error="Processing stopped. Review the ledger before trying again.")
+
+    _JOB_EXECUTOR.submit(go)
+    return JSONResponse({"job_id": job_id, "status": "running", "log": ""}, status_code=202)
+
+
+@app.get("/api/jobs/{job_id}")
+def ui_job(job_id: str):
+    with _JOB_LOCK:
+        if job_id not in _JOBS:
+            raise HTTPException(404, "Processing was interrupted. Review the ledger before submitting again.")
+        return dict(_JOBS[job_id])
 
 
 class _Tee(_io.TextIOBase):
@@ -251,10 +370,10 @@ def ui_state():
         },
         "card": _card(),
         "month_spent": ledger.month_spent(),
-        "inbox_waiting": len(_glob.glob("inbox/*.txt")),
+        "inbox_waiting": len(agent.inbox_files()),
         "intents": ledger.list_intents(),
         "decisions": ledger.decisions(),
-        "busy": _ACTION_LOCK.locked(),
+        "busy": _ACTION_LOCK.locked() or any(j["status"] == "running" for j in list(_JOBS.values())),
     }
 
 
@@ -276,7 +395,7 @@ def _inbox_preview(path):
 
 @app.get("/api/inbox")
 def ui_inbox_list():
-    return [_inbox_preview(p) for p in sorted(_glob.glob("inbox/*.txt"))]
+    return [_inbox_preview(p) for p in agent.inbox_files()]
 
 
 class InboxBody(BaseModel):
@@ -287,8 +406,7 @@ class InboxBody(BaseModel):
 def ui_process_inbox(body: InboxBody | None = None):
     # interactive=False: escalations stay pending for the Approve button instead of input()
     only = body.files if body else None
-    _, log = _run(agent.inbox, None, interactive=False, only=only)
-    return {"log": log}
+    return _submit(lambda: agent.inbox(None, interactive=False, only=only))
 
 
 class ApproveBody(BaseModel):
@@ -306,8 +424,7 @@ def ui_approve(intent_id: str, body: ApproveBody):
             print(f"✗ still {res['decision']}: {agent.clause_text(res['failed_clause'])}")
         return res
 
-    res, log = _run(go)
-    return {"decision": (res or {}).get("decision"), "failed_clause": (res or {}).get("failed_clause"), "log": log}
+    return _submit(go)
 
 
 def _why_records(question):
@@ -328,11 +445,15 @@ class WhyBody(BaseModel):
 
 @app.post("/api/why")
 def ui_why(body: WhyBody):
-    out = {"ledger": agent.explain_from_ledger(body.question), "records": _why_records(body.question),
+    return _submit(lambda: _answer_why(body.question))
+
+
+def _answer_why(question):
+    out = {"ledger": agent.explain_from_ledger(question), "records": _why_records(question),
            "memory": None, "memory_error": None}
     if memory.HAVE_COGNEE:
         try:
-            ans = _asyncio.run(memory.why(body.question))
+            ans = _asyncio.run(memory.why(question))
             out["memory"] = "\n".join(memory._texts(ans)) or None
         except Exception as e:
             out["memory_error"] = f"{type(e).__name__}: {e}"[:300]

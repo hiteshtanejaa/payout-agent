@@ -1,4 +1,3 @@
-# Cognee memory (C7 recall + "why" answers) and the LLM chat mode. Install in a second terminal; cognee is slow.
-cognee==1.6.4
+# Optional interactive CLI chat. The web demo uses Cognee from requirements.txt.
 openai-agents
 stripe-agent-toolkit

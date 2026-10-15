@@ -489,9 +489,33 @@ async function refresh(){
 function toast(m){ const t = $("toast"); t.textContent = m; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 2600); }
 function showLog(s){ $("log").textContent = s || "(no output)"; $("logBox").open = true; }
 async function post(url, body){
-  const r = await fetch(url, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body||{})});
-  if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
-  return r.json();
+  async function request(target, options, polling = false){
+    const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 15000);
+    try {
+      const r = await fetch(target, {...options, credentials:"same-origin", signal:controller.signal});
+      if (polling && r.status === 404) throw new Error("Processing was interrupted or its status expired. Check the dashboard before submitting again.");
+      if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
+      return {status:r.status, data:await r.json()};
+    } catch(err){
+      if (err.name === "AbortError" || err instanceof TypeError){
+        throw new Error(polling
+          ? "Could not check processing status. The action may still be running; check the dashboard before submitting again."
+          : "Could not confirm the request. It may have started; check the dashboard before submitting again.");
+      }
+      throw err;
+    } finally { clearTimeout(timeout); }
+  }
+  const response = await request(url, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body||{})});
+  if (response.status !== 202) return response.data;
+  if (!response.data.job_id) throw new Error("The server did not return a processing ID. Check the dashboard before submitting again.");
+  const jobUrl = `/api/jobs/${encodeURIComponent(response.data.job_id)}`;
+  while (true){
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    const {data:job} = await request(jobUrl, {method:"GET"}, true);
+    if (job.status === "complete") return {...(job.result || {}), log:job.log || ""};
+    if (job.status === "error") throw new Error([job.error || "Processing failed.", job.log].filter(Boolean).join("\n"));
+    if (job.status !== "running") throw new Error("The server returned an unknown processing status. Check the dashboard before submitting again.");
+  }
 }
 
 // ---------- inbox picker: choose which emails Treasurer should act on
