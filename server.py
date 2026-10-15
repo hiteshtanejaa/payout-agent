@@ -185,9 +185,9 @@ import sys as _sys
 import threading as _threading
 
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
 
 import agent
+from pydantic import BaseModel
 
 _ACTION_LOCK = _threading.Lock()
 _CARD_CACHE = {}
@@ -258,10 +258,36 @@ def ui_state():
     }
 
 
+def _inbox_preview(path):
+    """Enough of an email to recognise it: sender, subject, and a short snippet of the body."""
+    text = open(path, encoding="utf-8", errors="replace").read()
+    head, body = {}, []
+    for line in text.splitlines():
+        k, _, v = line.partition(":")
+        if v and k.strip().lower() in ("from", "to", "subject", "merchant", "category", "amount", "reason"):
+            head.setdefault(k.strip().lower(), v.strip())
+        elif line.strip():
+            body.append(line.strip())
+    subject = head.get("subject") or (f"{head['merchant']} · £{head.get('amount', '?')}" if "merchant" in head else "")
+    snippet = " ".join(body) or head.get("reason", "")
+    return {"file": os.path.basename(path), "from": head.get("from", "Purchase form" if "merchant" in head else ""),
+            "subject": subject or os.path.basename(path), "snippet": snippet[:140]}
+
+
+@app.get("/api/inbox")
+def ui_inbox_list():
+    return [_inbox_preview(p) for p in sorted(_glob.glob("inbox/*.txt"))]
+
+
+class InboxBody(BaseModel):
+    files: list[str] | None = None   # None = everything in inbox/
+
+
 @app.post("/api/inbox")
-def ui_process_inbox():
+def ui_process_inbox(body: InboxBody | None = None):
     # interactive=False: escalations stay pending for the Approve button instead of input()
-    _, log = _run(agent.inbox, None, interactive=False)
+    only = body.files if body else None
+    _, log = _run(agent.inbox, None, interactive=False, only=only)
     return {"log": log}
 
 
@@ -284,13 +310,26 @@ def ui_approve(intent_id: str, body: ApproveBody):
     return {"decision": (res or {}).get("decision"), "failed_clause": (res or {}).get("failed_clause"), "log": log}
 
 
+def _why_records(question):
+    """The ledger rows a "why" question is about, so the UI can lay them out (same matching as the CLI)."""
+    q, ds = question.lower(), ledger.decisions()
+    hits = [d for d in ds if d.get("stage") != "capture" and d.get("merchant") and d["merchant"].lower() in q]
+    if not hits:
+        hits = [d for d in ds if d.get("stage") != "capture"][-3:]
+    auths = {(d.get("stripe") or {}).get("authorization_id") for d in hits} - {None}
+    keep = {d["decision_id"] for d in hits}
+    return [d for d in ds if d["decision_id"] in keep or
+            (d.get("stage") == "capture" and (d.get("stripe") or {}).get("authorization_id") in auths)]
+
+
 class WhyBody(BaseModel):
     question: str
 
 
 @app.post("/api/why")
 def ui_why(body: WhyBody):
-    out = {"ledger": agent.explain_from_ledger(body.question), "memory": None, "memory_error": None}
+    out = {"ledger": agent.explain_from_ledger(body.question), "records": _why_records(body.question),
+           "memory": None, "memory_error": None}
     if memory.HAVE_COGNEE:
         try:
             ans = _asyncio.run(memory.why(body.question))

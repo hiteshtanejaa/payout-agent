@@ -11,3 +11,4 @@ __pycache__/
 fallback_connect/data/stripe_accounts.json
 inbox/processed/
 .DS_Store
+ledger/.cognee_synced*

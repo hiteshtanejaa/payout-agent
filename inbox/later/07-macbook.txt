@@ -1,0 +1,4 @@
+merchant: Apple
+category: computers_peripherals_and_software
+amount: 1299
+reason: MacBook Pro for the new hire

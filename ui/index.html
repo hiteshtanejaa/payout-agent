@@ -79,8 +79,6 @@ th{text-align:left;font-weight:500;color:var(--muted);font-size:13px;padding:10p
 td{padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top}
 tr.row{cursor:pointer}
 tr.row:hover td{background:#FAFBFA}
-tr.fresh td{animation:fresh 2.4s ease-out}
-@keyframes fresh{from{background:#EEF6F1}to{background:transparent}}
 td.r,th.r{text-align:right}
 .amt{font-weight:500;white-space:nowrap}
 .sub{color:var(--faint);font-size:12.5px}
@@ -106,6 +104,90 @@ details.log summary{cursor:pointer;color:var(--muted);font-size:13.5px}
 details.log pre{background:#13201B;color:#D7E5DD;border-radius:var(--radius);padding:14px 16px;font:12.5px/1.55 var(--mono);overflow:auto;max-height:280px;white-space:pre-wrap}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:999px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none}
 .toast.show{opacity:1}
+/* "Ask why" answer: verdict, reason, evidence, rules, timeline (pattern: Copperx transaction details) */
+.why{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:24px;display:grid;gap:20px;animation:whyIn .35s ease both}
+@keyframes whyIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.verdict{display:flex;gap:14px;align-items:center}
+.vicon{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;flex:none}
+.vicon svg{width:20px;height:20px}
+.v-ok{background:var(--ok-bg);color:var(--ok)} .v-no{background:var(--no-bg);color:var(--no)}
+.v-hold{background:var(--hold-bg);color:var(--hold)} .v-wait{background:var(--wait-bg);color:var(--wait)}
+.verdict h3{margin:0;font-size:20px;font-weight:600;letter-spacing:-.01em}
+.verdict .when{color:var(--muted);font-size:13.5px;margin-top:2px}
+.reason{margin:0;font-size:15px;line-height:1.55;max-width:72ch;color:#2A3530}
+.why-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.kv{background:#FAFBFA;border:1px solid var(--line);border-radius:8px;padding:4px 16px}
+.kv div{display:flex;justify-content:space-between;gap:16px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
+.kv div:last-child{border:0}
+.kv dt{color:var(--muted)} .kv dd{margin:0;text-align:right}
+.kv .mono{font:12.5px var(--mono)}
+.rules{list-style:none;margin:0;padding:4px 16px;background:#FAFBFA;border:1px solid var(--line);border-radius:8px}
+.rules li{display:grid;grid-template-columns:20px 30px 1fr;gap:6px;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.rules li:last-child{border:0}
+.rules .mk{font-weight:700} .rules .pass .mk{color:var(--ok)} .rules .fail .mk{color:var(--no)} .rules .hold .mk{color:var(--hold)} .rules .wait .mk{color:var(--wait)}
+.rules .cid{font:12px var(--mono);color:var(--muted)}
+.rules .fail .why-rule{display:block;color:var(--no);font-size:13px;margin-top:2px}
+.tl{list-style:none;margin:0;padding:0;position:relative}
+.tl li{position:relative;padding:0 0 14px 22px;font-size:14px}
+.tl li:last-child{padding-bottom:0}
+.tl li::before{content:"";position:absolute;left:4px;top:6px;width:7px;height:7px;border-radius:50%;background:var(--brand)}
+.tl li::after{content:"";position:absolute;left:7px;top:16px;bottom:-2px;width:1px;background:var(--line)}
+.tl li:last-child::after{display:none}
+.tl li.no::before{background:var(--no)} .tl li.hold::before{background:var(--hold)} .tl li.wait::before{background:var(--wait)}
+.tl .t{color:var(--faint);font-size:12.5px;margin-left:6px}
+.sec-title{font-size:13px;color:var(--muted);margin:0 0 8px;font-weight:500}
+.memq{border-left:3px solid var(--brand);padding:2px 0 2px 14px;color:#2A3530;font-size:14.5px;white-space:pre-wrap;max-width:80ch}
+.memnote{font-size:13px;color:var(--faint)}
+details.raw summary{cursor:pointer;color:var(--muted);font-size:13px}
+details.raw pre{white-space:pre-wrap;font:12px/1.5 var(--mono);color:#45504A;background:#FAFBFA;border:1px solid var(--line);border-radius:8px;padding:12px;margin:8px 0 0}
+@media (max-width:860px){.why-grid{grid-template-columns:1fr}}
+/* inbox picker */
+.inbox-wrap{position:relative}
+.pop{position:absolute;right:0;top:calc(100% + 8px);width:min(440px,calc(100vw - 32px));background:var(--surface);border:1px solid var(--line);border-radius:12px;
+  box-shadow:0 18px 40px -18px rgba(23,33,29,.35);z-index:20;opacity:0;transform:translateY(-4px) scale(.98);transform-origin:top right;pointer-events:none;transition:opacity .16s ease,transform .16s ease}
+.pop.open{opacity:1;transform:none;pointer-events:auto}
+.pop-head{display:flex;justify-content:space-between;align-items:center;padding:14px 16px 10px;font-weight:600}
+.pop-head label{font-weight:400;font-size:13.5px;color:var(--muted);display:flex;gap:6px;align-items:center;cursor:pointer}
+.mail{display:grid;grid-template-columns:20px 1fr;gap:10px;padding:10px 16px;border-top:1px solid var(--line);cursor:pointer}
+.mail:hover{background:#FAFBFA}
+.mail input,.pop-head input{accent-color:var(--brand);width:16px;height:16px;margin:2px 0 0}
+.mail .from{font-size:12.5px;color:var(--muted)}
+.mail .subj{font-weight:500;font-size:14px}
+.mail > div{min-width:0}
+.mail .snip{font-size:13px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pop-foot{display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid var(--line)}
+.pop-empty{padding:16px;color:var(--muted);font-size:14px;border-top:1px solid var(--line)}
+/* live run strip (pattern: Wise's thin step bar) */
+.run{margin-bottom:28px}
+.run .panel{padding:16px 22px 14px}
+.run-head{display:flex;justify-content:space-between;align-items:baseline;gap:16px;margin-bottom:12px}
+.run-title{font-weight:600}
+.run-title .sub{font-weight:400;margin-left:8px}
+.run-state{font-size:13.5px;color:var(--muted);transition:color .3s,opacity .25s}
+.run .panel > *{transition:opacity .2s ease}
+.run .panel.fade > *{opacity:0}
+.run-state.ok{color:var(--ok)} .run-state.no{color:var(--no)} .run-state.hold{color:var(--hold)} .run-state.wait{color:var(--wait)}
+.steps{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+.seg{height:4px;border-radius:2px;background:#E8EBE8;position:relative;overflow:hidden}
+.seg i{position:absolute;inset:0;transform:scaleX(0);transform-origin:left;background:var(--brand);transition:transform .55s cubic-bezier(.4,0,.2,1),background .3s}
+.steps.reset .seg i{transition:none}
+.st.done .seg i{transform:scaleX(1)}
+.st.fail .seg i{transform:scaleX(1);background:var(--no)}
+.st.hold .seg i{transform:scaleX(1);background:var(--hold)}
+.st.wait .seg i{transform:scaleX(1);background:var(--wait)}
+.st.skip .seg{background:repeating-linear-gradient(90deg,#E8EBE8 0 4px,transparent 4px 7px)}
+.st.active .seg::after{content:"";position:absolute;inset:0;width:40%;background:linear-gradient(90deg,transparent,rgba(29,74,58,.55),transparent);animation:sweep 1.1s ease-in-out infinite}
+@keyframes sweep{from{transform:translateX(-100%)}to{transform:translateX(250%)}}
+.st .lbl{font-size:12px;color:var(--faint);margin-top:7px;transition:color .3s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.st.done .lbl,.st.active .lbl{color:var(--ink)} .st.fail .lbl{color:var(--no)} .st.hold .lbl{color:var(--hold)} .st.wait .lbl{color:var(--wait)}
+tr.enter td{animation:enter .5s cubic-bezier(.2,.7,.2,1) both}
+@keyframes enter{from{opacity:0;transform:translateY(-6px);background:#EEF6F1}60%{background:#EEF6F1}to{opacity:1;transform:none;background:transparent}}
+.plastic{transition:box-shadow .3s,transform .3s}
+.plastic.tap-ok{animation:tapok 1.1s ease}
+.plastic.tap-no{animation:tapno 1.1s ease}
+@keyframes tapok{0%{box-shadow:0 0 0 0 rgba(30,112,71,.55),0 10px 24px -14px rgba(16,48,42,.7)}40%{transform:translateY(-2px)}100%{box-shadow:0 0 0 14px rgba(30,112,71,0),0 10px 24px -14px rgba(16,48,42,.7);transform:none}}
+@keyframes tapno{0%{box-shadow:0 0 0 0 rgba(180,35,24,.55)}20%{transform:translateX(-3px)}40%{transform:translateX(3px)}60%{transform:translateX(-2px)}100%{box-shadow:0 0 0 14px rgba(180,35,24,0);transform:none}}
+@media (max-width:860px){.st .lbl{font-size:10.5px}}
 @media (max-width:860px){header .ver{display:none}.top{grid-template-columns:1fr}.cardside{grid-template-columns:1fr}.plastic{max-width:280px}
   .hide-sm{display:none}.wrap{padding:20px 16px 48px}.pitem{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
@@ -118,7 +200,14 @@ details.log pre{background:#13201B;color:#D7E5DD;border-radius:var(--radius);pad
     <h1>Treasurer</h1>
     <span class="ver" id="ver"></span>
     <span class="spacer"></span>
-    <button class="btn primary" id="runInbox">Process inbox<span class="count" id="inboxCount">0</span></button>
+    <div class="inbox-wrap">
+      <button class="btn primary" id="runInbox" aria-haspopup="dialog" aria-expanded="false">Process inbox<span class="count" id="inboxCount">0</span></button>
+      <div class="pop" id="inboxPop" role="dialog" aria-label="Choose emails to process">
+        <div class="pop-head"><span>Inbox</span><label><input type="checkbox" id="selAll" checked> Select all</label></div>
+        <div id="mailList"></div>
+        <div class="pop-foot"><button class="btn" id="popCancel" type="button">Cancel</button><button class="btn primary" id="popGo" type="button">Process selected</button></div>
+      </div>
+    </div>
   </header>
 
   <div class="top">
@@ -130,13 +219,20 @@ details.log pre{background:#13201B;color:#D7E5DD;border-radius:var(--radius);pad
       <div class="strip" id="strip"></div>
     </div>
     <div class="panel cardside">
-      <div class="plastic" aria-label="Treasurer virtual card">
+      <div class="plastic" id="plastic" aria-label="Treasurer virtual card">
         <div class="tag">Virtual · GBP</div>
         <div class="chip"></div>
         <div class="num" id="last4">•••• ••••</div>
         <div class="who">Treasurer Agent</div>
       </div>
       <dl class="limits" id="limits"></dl>
+    </div>
+  </div>
+
+  <div class="run" id="run" aria-live="polite">
+    <div class="panel">
+      <div class="run-head"><div class="run-title" id="runTitle">Live activity</div><div class="run-state" id="runState">Waiting for requests</div></div>
+      <div class="steps" id="steps"></div>
     </div>
   </div>
 
@@ -215,11 +311,15 @@ function detail(d){
   return `<dl>${rows.join("")}</dl>`;
 }
 
+const _last = new Map();
+function setHTML(el, html){ if (_last.get(el) === html) return false; _last.set(el, html); el.innerHTML = html; return true; }
+function setText(el, t){ if (el.textContent !== t) el.textContent = t; }
+
 function render(){
   const p = S.policy, spent = S.month_spent, cap = p.monthly_max;
   $("ver").textContent = "policy " + p.version.replace("sha256:","");
   $("inboxCount").textContent = S.inbox_waiting;
-  $("spent").innerHTML = money(spent);
+  countTo(spent);
   $("meter").style.width = Math.min(100, spent / cap * 100) + "%";
   $("meterWrap").setAttribute("aria-valuenow", Math.round(spent/cap*100));
   $("left").textContent = `${plain(cap - spent)} left`;
@@ -227,20 +327,20 @@ function render(){
   $("last4").textContent = "•••• " + (S.card.last4 || "••••");
 
   const cats = p.allowed_categories.map(c => CAT[c] || c).join(", ");
-  $("limits").innerHTML = `
+  setHTML($("limits"), `
     <div><dt>Per purchase<span class="enf">C1 · enforced by Stripe</span></dt><dd>${plain(p.per_transaction_max)}</dd></div>
     <div><dt>Merchants<span class="enf">C2 · enforced by Stripe</span></dt><dd>${esc(cats)}</dd></div>
     <div><dt>Monthly cap<span class="enf">C4 · enforced by Stripe</span></dt><dd>${plain(cap)}</dd></div>
-    <div><dt>Needs an approver<span class="enf">C3 · enforced by Treasurer</span></dt><dd>Above ${plain(p.escalate_above)}</dd></div>`;
+    <div><dt>Needs an approver<span class="enf">C3 · enforced by Treasurer</span></dt><dd>Above ${plain(p.escalate_above)}</dd></div>`);
 
   const it = S.intents, n = s => it.filter(i => i.status === s).length;
-  $("strip").innerHTML = `<span><b>${it.length}</b> requests</span><span><b>${n("executed")}</b> paid</span>
-    <span><b>${n("awaiting_approval")}</b> awaiting approval</span><span><b>${n("held")}</b> held</span><span><b>${n("declined")}</b> declined</span>`;
+  setHTML($("strip"), `<span><b>${it.length}</b> requests</span><span><b>${n("executed")}</b> paid</span>
+    <span><b>${n("awaiting_approval")}</b> awaiting approval</span><span><b>${n("held")}</b> held</span><span><b>${n("declined")}</b> declined</span>`);
 
   const byId = Object.fromEntries(S.decisions.map(d => [d.decision_id, d]));
   const pend = it.filter(i => i.status === "awaiting_approval" || i.status === "held");
   const typing = $("pending").contains(document.activeElement);  // don't wipe an approver name mid-edit
-  if (!typing) $("pending").innerHTML = pend.length ? pend.map(i => {
+  if (!typing) setHTML($("pending"), pend.length ? pend.map(i => {
     if (i.status === "held") {
       const mem = ((byId[i.proposal_decision_id]||{}).evidence||{}).memory || {};
       const note = (mem.notes||[]).join(" ") || mem.detail || "Memory lookup failed, so Treasurer will not spend.";
@@ -252,13 +352,13 @@ function render(){
       <div class="why">${esc(i.description || "")} — above ${plain(p.escalate_above)}, so C3 needs a named approver.</div></div>
       <form class="approve" data-id="${esc(i.id)}"><input name="who" value="${esc(p.approvers[0]||"")}" aria-label="Approver name">
       <button class="btn primary">Approve and pay</button></form></div>`;
-  }).join("") : `<div class="empty">Nothing waiting. Purchases over ${plain(p.escalate_above)} and anything memory flags will show up here.</div>`;
+  }).join("") : `<div class="empty">Nothing waiting. Purchases over ${plain(p.escalate_above)} and anything memory flags will show up here.</div>`);
 
   const rows = [...S.decisions].reverse();
-  $("ledger").innerHTML = rows.length ? rows.map(d => {
-    const o = OUT[d.decision] || [d.decision, "decline"], fresh = !first && !seen.has(d.decision_id);
+  const changed = setHTML($("ledger"), rows.length ? rows.map(d => {
+    const o = OUT[d.decision] || [d.decision, "decline"];
     const time = d.ts ? new Date(d.ts).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}) : "";
-    return `<tr class="row ${fresh?"fresh":""}" data-id="${esc(d.decision_id)}" tabindex="0" aria-expanded="${open.has(d.decision_id)}">
+    return `<tr class="row" data-id="${esc(d.decision_id)}" tabindex="0" aria-expanded="${open.has(d.decision_id)}">
       <td>${esc(time)}</td>
       <td>${esc(d.merchant || "—")}<div class="sub">${esc(STAGE[d.stage] || d.stage)}</div></td>
       <td><span class="pill p-${o[1]}">${o[0]}</span></td>
@@ -267,13 +367,124 @@ function render(){
       <td class="hide-sm">${stripeLink(d.stripe)}</td>
       <td class="r amt">${money(d.amount)}</td></tr>` +
       (open.has(d.decision_id) ? `<tr class="detail"><td colspan="7">${detail(d)}</td></tr>` : "");
-  }).join("") : `<tr><td colspan="7" class="empty" style="border:0">No decisions yet. Drop a request into inbox/ and press Process inbox.</td></tr>`;
+  }).join("") : `<tr><td colspan="7" class="empty" style="border:0">No decisions yet. Drop a request into inbox/ and press Process inbox.</td></tr>`);
+  const newOnes = first ? [] : S.decisions.filter(d => !seen.has(d.decision_id));
+  if (changed && !first) newOnes.forEach(d => { const tr = $("ledger").querySelector(`tr.row[data-id="${CSS.escape(d.decision_id)}"]`); if (tr) tr.classList.add("enter"); });
   rows.forEach(d => seen.add(d.decision_id)); first = false;
+  onNew(newOnes);
   $("runInbox").disabled = S.busy || S.inbox_waiting === 0;
 }
 
+// ---------- motion: everything below is driven by real ledger rows, never by timers
+let shown = 0;
+function countTo(target){
+  const el = $("spent"), from = shown, t0 = performance.now(), dur = 700;
+  if (from === target || matchMedia("(prefers-reduced-motion: reduce)").matches){ shown = target; el.innerHTML = money(target); return; }
+  shown = target;
+  (function tick(t){ const k = Math.min(1,(t-t0)/dur), e = 1-Math.pow(1-k,3);
+    el.innerHTML = money(from + (target-from)*e); if (k < 1) requestAnimationFrame(tick); })(t0);
+}
+function tap(ok){
+  const c = $("plastic"); c.classList.remove("tap-ok","tap-no"); void c.offsetWidth; c.classList.add(ok ? "tap-ok" : "tap-no");
+}
+const STEPS = [["read","Request read"],["memory","Memory check"],["policy","Policy"],["approve","Approver"],["gate","Card gate"],["settled","Settled"]];
+const DWELL = 1400;            // a finished request stays readable this long before the next one takes over
+let queue = [], current = null, doneAt = 0, painted = null;
+$("steps").innerHTML = STEPS.map(([k,l]) => `<div class="st"><div class="seg"><i></i></div><div class="lbl">${l}</div></div>`).join("");
+
+function keyOf(d){
+  if (d.intent_id) return "i:" + d.intent_id;
+  const aid = (d.stripe || {}).authorization_id;
+  if (aid){
+    const a = S.decisions.find(x => x.stage === "authorization" && (x.stripe||{}).authorization_id === aid && x.intent_id);
+    return a ? "i:" + a.intent_id : "a:" + aid;
+  }
+  return "a:" + d.decision_id;
+}
+function onNew(list){
+  for (const d of list){
+    if (d.stage === "authorization") setTimeout(() => tap(d.decision === "approve"), current === keyOf(d) ? 0 : 400);
+    const k = keyOf(d);
+    if (k !== current && !queue.includes(k)) queue.push(k);
+  }
+  drawRun();
+}
+function startRun(k){ queue = []; show(k); }   // a button press jumps straight to what was pressed
+function show(k){ current = k; doneAt = 0; drawRun(); }
+
+function view(k){
+  const ds = S ? S.decisions : [];
+  const st = Object.fromEntries(STEPS.map(([s]) => [s,"todo"]));
+  let title = "Processing inbox", state = ["Reading the request…",""];
+  if (k && k.startsWith("i:")){
+    const id = k.slice(2), mine = ds.filter(d => d.intent_id === id);
+    const auths = new Set(mine.map(d => (d.stripe||{}).authorization_id).filter(Boolean));
+    const cap = ds.find(d => d.stage === "capture" && auths.has((d.stripe||{}).authorization_id));
+    const prop = mine.find(d => d.stage === "proposal"), appr = [...mine].reverse().find(d => d.stage === "approval");
+    const auth = [...mine].reverse().find(d => d.stage === "authorization");
+    const it = ((S && S.intents) || []).find(i => i.id === id) || prop || {};
+    if (it.merchant) title = `${esc(it.merchant)} <span class="sub">${plain(it.amount)}</span>`;
+    if (prop){
+      st.read = "done"; state = ["Checking policy…",""];
+      const mem = (prop.evidence || {}).memory;
+      st.memory = !mem ? "skip" : (mem.status === "clear" ? "done" : "hold");
+      if (prop.decision === "decline"){ st.policy = "fail"; state = ["Declined · " + prop.failed_clause, "no"]; }
+      else if (prop.decision === "hold"){ st.policy = "hold"; state = ["Held · memory flagged this merchant", "hold"]; }
+      else {
+        st.policy = "done"; state = ["Paying with the card…",""];
+        if (!(prop.clause_ids || []).includes("C3")) st.approve = "skip";
+        else if (appr && appr.decision === "approve") st.approve = "done";
+        else { st.approve = "wait"; state = ["Waiting for an approver · C3", "wait"]; }
+      }
+    }
+    if (auth){ st.gate = auth.decision === "approve" ? "done" : "fail";
+      state = auth.decision === "approve" ? ["Card gate approved · settling…", ""] : ["Card gate declined · " + auth.failed_clause, "no"]; }
+    if (cap){ st.settled = "done"; state = ["Paid", "ok"]; }
+  } else if (k && k.startsWith("a:")){
+    const id = k.slice(2), d = [...ds].reverse().find(x => (x.stripe||{}).authorization_id === id || x.decision_id === id) || {};
+    title = `${esc(d.merchant || "Card charge")} <span class="sub">${plain(d.amount)} · not proposed by Treasurer</span>`;
+    ["read","memory","policy","approve"].forEach(s => st[s] = "skip");
+    st.gate = d.decision === "approve" ? "done" : "fail";
+    state = d.decision === "approve" ? ["Approved","ok"] :
+      ((d.decided_by || "").startsWith("stripe:") ? ["Blocked by Stripe before our code ran","no"] : ["Declined · " + (d.failed_clause || ""),"no"]);
+  }
+  const finished = ["ok","no","hold","wait"].includes(state[1]);
+  if (!finished){ const s = STEPS.map(([x]) => x).find(x => st[x] === "todo"); if (s) st[s] = "active"; }
+  return {title, state, st, finished};
+}
+
+function paint(v){
+  $("runTitle").innerHTML = v.title;
+  const rs = $("runState"); rs.textContent = v.state[0]; rs.className = "run-state " + v.state[1];
+  STEPS.forEach(([k], i) => { const el = $("steps").children[i], c = "st " + v.st[k]; if (el.className !== c) el.className = c; });
+}
+function drawRun(){
+  if (!current){ if (queue.length) show(queue.shift()); return; }
+  let v = view(current);
+  if (v.finished && painted === current && !doneAt) doneAt = performance.now();
+  // move on only when this request has finished and its outcome has been readable for a moment
+  if (queue.length && (current === "pending" || (doneAt && performance.now() - doneAt > DWELL))){
+    current = queue.shift(); doneAt = 0; v = view(current);
+  }
+  const panel = $("run").firstElementChild;
+  if (painted !== current){
+    painted = current;
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    panel.classList.add("fade");
+    setTimeout(() => {           // fade out, reset the bar without animating, fade in, then let it fill forward
+      $("steps").classList.add("reset");
+      [...$("steps").children].forEach(el => el.className = "st");
+      void $("steps").offsetWidth; $("steps").classList.remove("reset");
+      paint(view(current)); panel.classList.remove("fade");
+    }, reduce ? 0 : 200);
+    return;
+  }
+  if (!panel.classList.contains("fade")) paint(v);
+}
+setInterval(() => { if (S) drawRun(); }, 250);
+
 async function refresh(){
-  try { S = await (await fetch("/api/state")).json(); render(); } catch(e) { /* server restarting; try again next tick */ }
+  try { S = await (await fetch("/api/state")).json(); render(); drawRun(); } catch(e) { /* server restarting; try again next tick */ }
 }
 function toast(m){ const t = $("toast"); t.textContent = m; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 2600); }
 function showLog(s){ $("log").textContent = s || "(no output)"; $("logBox").open = true; }
@@ -283,16 +494,43 @@ async function post(url, body){
   return r.json();
 }
 
-$("runInbox").onclick = async e => {
-  e.currentTarget.disabled = true; toast("Processing inbox…");
-  try { const r = await post("/api/inbox"); showLog(r.log); toast("Inbox processed"); }
+// ---------- inbox picker: choose which emails Treasurer should act on
+const pop = $("inboxPop");
+function closePop(){ pop.classList.remove("open"); $("runInbox").setAttribute("aria-expanded","false"); }
+function syncPick(){
+  const boxes = [...$("mailList").querySelectorAll("input")], n = boxes.filter(b => b.checked).length;
+  $("popGo").textContent = n === boxes.length ? `Process all ${n}` : `Process ${n} selected`;
+  $("popGo").disabled = n === 0;
+  $("selAll").checked = n === boxes.length; $("selAll").indeterminate = n > 0 && n < boxes.length;
+}
+$("runInbox").onclick = async () => {
+  if (pop.classList.contains("open")) return closePop();
+  let mails = [];
+  try { mails = await (await fetch("/api/inbox")).json(); } catch(e) {}
+  $("mailList").innerHTML = mails.length ? mails.map(m => `<label class="mail"><input type="checkbox" value="${esc(m.file)}" checked>
+      <div><div class="from">${esc(m.from || m.file)}</div><div class="subj">${esc(m.subject)}</div><div class="snip">${esc(m.snippet)}</div></div></label>`).join("")
+    : `<div class="pop-empty">The inbox is empty. Add a .txt email to inbox/ to see it here.</div>`;
+  $("selAll").parentElement.style.visibility = mails.length ? "" : "hidden";
+  syncPick(); pop.classList.add("open"); $("runInbox").setAttribute("aria-expanded","true");
+  const first = $("mailList").querySelector("input"); if (first) first.focus();
+};
+$("mailList").addEventListener("change", syncPick);
+$("selAll").onchange = e => { $("mailList").querySelectorAll("input").forEach(b => b.checked = e.target.checked); syncPick(); };
+$("popCancel").onclick = closePop;
+document.addEventListener("keydown", e => { if (e.key === "Escape") closePop(); });
+document.addEventListener("click", e => { if (pop.classList.contains("open") && !e.target.closest(".inbox-wrap")) closePop(); });
+$("popGo").onclick = async () => {
+  const files = [...$("mailList").querySelectorAll("input:checked")].map(b => b.value);
+  if (!files.length) return;
+  closePop(); $("runInbox").disabled = true; startRun("pending");
+  try { const r = await post("/api/inbox", {files}); showLog(r.log); }
   catch(err){ showLog(String(err)); toast("Inbox run failed — see output"); }
   refresh();
 };
 $("pending").addEventListener("submit", async e => {
   e.preventDefault();
   const f = e.target, name = f.who.value.trim(); if (!name) return;
-  f.querySelector("button").disabled = true; toast(`Approving as ${name}…`);
+  f.querySelector("button").disabled = true; startRun("i:" + f.dataset.id);
   try { const r = await post(`/api/intents/${f.dataset.id}/approve`, {approver:name}); showLog(r.log);
         toast(r.decision === "approve" ? `Approved by ${name} and paid` : `Not approved: ${r.failed_clause}`); }
   catch(err){ showLog(String(err)); toast("Approval failed — see output"); }
@@ -301,19 +539,129 @@ $("pending").addEventListener("submit", async e => {
 const toggle = tr => { const id = tr.dataset.id; open.has(id) ? open.delete(id) : open.add(id); render(); };
 $("ledger").addEventListener("click", e => { const tr = e.target.closest("tr.row"); if (tr && !e.target.closest("a")) toggle(tr); });
 $("ledger").addEventListener("keydown", e => { const tr = e.target.closest("tr.row"); if (tr && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); toggle(tr); } });
+
+// ---------- "Ask why": turn ledger rows into a readable answer
+const ICON = {
+  ok:'<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 10.5l3.2 3L15 6.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  no:'<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 6l8 8M14 6l-8 8" stroke-linecap="round"/></svg>',
+  hold:'<svg viewBox="0 0 20 20" fill="currentColor"><rect x="6" y="5" width="2.6" height="10" rx="1"/><rect x="11.4" y="5" width="2.6" height="10" rx="1"/></svg>',
+  wait:'<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="10" cy="10" r="6.5"/><path d="M10 6.5V10l2.5 1.6" stroke-linecap="round"/></svg>'};
+const CNAME = {computer_software_stores:"Software", computers_peripherals_and_software:"Computers",
+  office_and_commercial_furniture:"Office furniture", advertising_services:"Advertising", eating_places_restaurants:"Restaurants"};
+const fmtWhen = ts => ts ? new Date(ts).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}) : "";
+const plainP = p => "£" + (Math.round(+p||0)/100).toLocaleString("en-GB",{minimumFractionDigits:2});
+
+function whyGroups(recs){
+  // one group per request: proposals/approvals/authorizations share an intent; captures join via the authorization
+  const authToIntent = {}; recs.forEach(d => { const a = (d.stripe||{}).authorization_id; if (a && d.intent_id) authToIntent[a] = d.intent_id; });
+  const groups = new Map();
+  recs.forEach(d => { const k = d.intent_id || authToIntent[(d.stripe||{}).authorization_id] || "a:" + ((d.stripe||{}).authorization_id || d.decision_id);
+    if (!groups.has(k)) groups.set(k, []); groups.get(k).push(d); });
+  return [...groups.values()];
+}
+
+function whyCard(g){
+  const P = S.policy, by = st => [...g].reverse().find(d => d.stage === st);
+  const prop = by("proposal"), appr = by("approval"), auth = by("authorization"), cap = by("capture");
+  const base = prop || auth || g[0], amt = base.amount, m = esc(base.merchant || "this charge");
+  const ev = (appr || prop || auth || {}).evidence || {};
+  let tone, head;
+  if (cap || (auth && auth.decision === "approve")) { tone = "ok"; head = `Paid ${plainP(amt)} to ${m}`; }
+  else if (auth && auth.decision !== "approve") { tone = "no"; head = `Declined ${plainP(amt)} at ${m}`; }
+  else if (prop && prop.decision === "hold") { tone = "hold"; head = `Held ${plainP(amt)} for ${m}`; }
+  else if (prop && prop.decision === "decline") { tone = "no"; head = `Declined ${plainP(amt)} at ${m}`; }
+  else if (prop && prop.decision === "escalate" && !(appr && appr.decision === "approve")) { tone = "wait"; head = `${plainP(amt)} to ${m} is waiting for approval`; }
+  else { tone = "ok"; head = `Cleared ${plainP(amt)} for ${m}`; }
+
+  // plain-English reason, built only from what the ledger recorded
+  const cat = CNAME[base.category] || base.category, bits = [];
+  const failed = (auth && auth.decision !== "approve" && auth.failed_clause) || (prop && prop.failed_clause && prop.decision !== "escalate" ? prop.failed_clause : null);
+  if (!prop && auth) bits.push("Treasurer never proposed this charge, so there was no request to match it to.");
+  const SAY = {
+    C1: () => `It is over the ${plainP(P.per_transaction_max).replace(".00","")} per-purchase cap, so C1 declined it.`,
+    C2: () => `${esc(cat)} isn’t an allowed category, so C2 declined it.`,
+    C4: () => `It would take the month over the ${plainP(P.monthly_max).replace(".00","")} cap, so C4 declined it.`,
+    C5: () => `Nothing matching it had been proposed and cleared, so the card gate declined it under C5.`,
+    C7: () => `Memory flagged this merchant, so C7 held it before any money moved.`};
+  if (failed && SAY[failed]) bits.push(SAY[failed]());
+  else if (failed) bits.push(`It was stopped by ${esc(failed)}.`);
+  if (prop && !failed){
+    bits.push(`It was under the ${plainP(P.per_transaction_max).replace(".00","")} per-purchase cap, in an allowed category (${esc(cat)}), and within the monthly cap.`);
+    const mem = (prop.evidence||{}).memory; if (mem && mem.status === "clear") bits.push("Finance notes in memory raised nothing about this merchant.");
+  }
+  if (prop && prop.decision === "hold"){ const mem = (prop.evidence||{}).memory || {}; if ((mem.notes||[]).length) bits.push(`Memory recalled: “${esc(mem.notes[0])}”`); }
+  if (appr && appr.decision === "approve" && ev.approval) bits.push(`It was over ${plainP(P.escalate_above).replace(".00","")}, so ${esc(ev.approval.approver)} approved it.`);
+  else if (tone === "wait") bits.push(`It is over ${plainP(P.escalate_above).replace(".00","")}, so a named approver has to sign it off first.`);
+  if (auth && auth.decision === "approve") bits.push("At the card, the gate matched the charge to this cleared request.");
+  if (cap) bits.push("Stripe then settled the payment.");
+
+  // evidence panel
+  const a = (auth || {}).stripe || {}, kv = [];
+  const row = (k,v) => v && kv.push(`<div><dt>${k}</dt><dd>${v}</dd></div>`);
+  const pillTxt = {ok:"Paid", no:"Declined", hold:"Held", wait:"Awaiting approval"}[tone], pillCls = {ok:"approve", no:"decline", hold:"hold", wait:"escalate"}[tone];
+  row("Status", `<span class="pill p-${pillCls}">${tone === "ok" && !cap && !auth ? "Cleared" : pillTxt}</span>`);
+  row("Amount", plainP(amt));
+  row("Category", esc(cat));
+  if (ev.approval) row("Approved by", `${esc(ev.approval.approver)} <span class="sub mono">${esc(ev.approval.token||"")}</span>`);
+  const mtd = [...g].reverse().find(d => (d.evidence||{}).month_spent_after !== undefined);
+  if (mtd && tone === "ok") row("Month to date", `${plainP(mtd.evidence.month_spent_after)} of ${plainP(mtd.evidence.monthly_max)}`);
+  if (a.authorization_id) row("Card authorization", `<a class="sid" target="_blank" rel="noopener" href="https://dashboard.stripe.com/test/issuing/authorizations/${esc(a.authorization_id)}">${esc(a.authorization_id)}</a>`);
+  if (cap && (cap.stripe||{}).transaction_id) row("Transaction", `<span class="mono">${esc(cap.stripe.transaction_id)}</span>`);
+  row("Policy version", `<span class="mono">${esc((base.policy_version||"").replace("sha256:",""))}</span>`);
+
+  // rules: every clause any stage applied, marked by the worst outcome it saw
+  const order = ["C1","C2","C3","C4","C5","C7"], seen = {};
+  g.forEach(d => (d.clause_ids||[]).forEach(c => { seen[c] = seen[c] || "pass"; }));
+  g.forEach(d => { if (d.failed_clause && seen[d.failed_clause] !== undefined) {
+      const st = d.decision === "hold" ? "hold" : d.decision === "escalate" ? "wait" : "fail";
+      if (!(st === "wait" && appr && appr.decision === "approve")) seen[d.failed_clause] = st; } });
+  const mark = {pass:"✓", fail:"✕", hold:"Ⅱ", wait:"…"};
+  const rules = order.filter(c => seen[c]).map(c => `<li class="${seen[c]}"><span class="mk">${mark[seen[c]]}</span><span class="cid">${c}</span>
+      <span>${esc(P.clauses[c].title)}${seen[c] === "fail" ? `<span class="why-rule">${esc(P.clauses[c].rule)}</span>` : ""}</span></li>`).join("");
+
+  // timeline
+  const who2 = d => d.decided_by === "policy_evaluator" ? "Policy" : d.decided_by === "treasurer_webhook" ? "Card gate" :
+    (d.decided_by||"").startsWith("human:") ? d.decided_by.slice(6) : (d.decided_by||"").startsWith("stripe") ? "Stripe" : d.decided_by;
+  const verb = d => ({approve:"approved", escalate:"asked for an approver", hold:"held it", decline:"declined", captured:"settled"}[d.decision] || d.decision);
+  const tl = g.map(d => `<li class="${d.decision === "decline" ? "no" : d.decision === "hold" ? "hold" : d.decision === "escalate" ? "wait" : ""}">
+      <b>${esc(STAGE[d.stage] || d.stage)}</b> · ${esc(who2(d))} ${esc(verb(d))}<span class="t">${esc(fmtWhen(d.ts))}</span></li>`).join("");
+
+  return `<div class="verdict"><div class="vicon v-${tone}">${ICON[tone]}</div>
+      <div><h3>${head}</h3><div class="when">${esc(fmtWhen(base.ts))}</div></div></div>
+    <p class="reason">${bits.join(" ")}</p>
+    <div class="why-grid">
+      <div><div class="sec-title">Evidence</div><dl class="kv">${kv.join("")}</dl></div>
+      <div><div class="sec-title">Rules checked</div><ul class="rules">${rules || '<li><span></span><span></span><span class="sub">No policy rules ran (Stripe decided first).</span></li>'}</ul>
+        <div class="sec-title" style="margin-top:16px">What happened</div><ol class="tl">${tl}</ol></div>
+    </div>`;
+}
+
+function renderWhy(r){
+  const groups = whyGroups(r.records || []), parts = [];
+  if (!groups.length) parts.push(`<div class="why"><p class="reason">No decisions match that question yet. Try naming the merchant, e.g. “Why did you pay Figma?”</p></div>`);
+  else {
+    const latest = groups[groups.length-1];
+    let inner = whyCard(latest);
+    if (r.memory) inner += `<div><div class="sec-title">From Cognee memory</div><div class="memq">${esc(r.memory)}</div></div>`;
+    else if (r.memory_error) inner += `<div class="memnote">${/not found/i.test(r.memory_error)
+        ? "Cognee hasn’t been given these decisions yet (run python agent.py sync-memory), so this answer comes from the audit ledger."
+        : "Cognee memory was unavailable, so this answer comes from the audit ledger."}</div>`;
+    if (groups.length > 1) inner += `<div class="memnote">${groups.length - 1} earlier request${groups.length > 2 ? "s" : ""} for the same merchant are in the decisions table.</div>`;
+    inner += `<details class="raw"><summary>Raw audit entries</summary><pre>${esc(r.ledger || "")}</pre></details>`;
+    parts.push(`<div class="why">${inner}</div>`);
+  }
+  $("answer").innerHTML = parts.join("");
+}
+
 $("askForm").onsubmit = async e => {
   e.preventDefault(); const q = $("q").value.trim() || $("q").placeholder;
-  $("askBtn").disabled = true; $("answer").innerHTML = `<div class="block sub">Checking memory and the ledger…</div>`;
+  $("askBtn").disabled = true; $("answer").innerHTML = `<div class="why"><p class="reason sub">Checking memory and the audit ledger…</p></div>`;
   try {
-    const r = await post("/api/why", {question:q}), parts = [];
-    if (r.memory) parts.push(`<div class="block"><div class="src">From Cognee memory</div>${esc(r.memory)}</div>`);
-    parts.push(`<div class="block"><div class="src">From the audit ledger</div>${esc(r.ledger || "No matching decisions.")}</div>`);
-    if (r.memory_error) parts.push(`<div class="sub">Memory unavailable (${esc(r.memory_error)}); answered from the ledger.</div>`);
-    $("answer").innerHTML = parts.join("");
-  } catch(err){ $("answer").innerHTML = `<div class="block">Could not answer: ${esc(err)}</div>`; }
+    renderWhy(await post("/api/why", {question:q}));
+  } catch(err){ $("answer").innerHTML = `<div class="why"><p class="reason">Couldn’t answer: ${esc(err)}</p></div>`; }
   $("askBtn").disabled = false;
 };
-refresh(); setInterval(refresh, 2000);
+refresh(); setInterval(refresh, 700);
 </script>
 </body>
 </html>

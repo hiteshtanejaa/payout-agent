@@ -11,9 +11,13 @@ import json
 import os
 import threading
 
-DATASET = "treasurer"
+from dotenv import load_dotenv
+
+load_dotenv()  # read COGNEE_* before the constants below (agent.py imports this module first)
+
+DATASET = os.getenv("COGNEE_DATASET", "treasurer")  # use a fresh name (e.g. treasurer_demo) for a clean memory
 NOTES_DATASET = "finance_notes"
-SYNCED = os.path.join(os.getenv("LEDGER_DIR", "ledger"), ".cognee_synced")
+SYNCED = os.path.join(os.getenv("LEDGER_DIR", "ledger"), f".cognee_synced_{DATASET}")  # per dataset, so a new one re-sends the policy
 
 try:
     import cognee  # noqa: F401
@@ -54,7 +58,9 @@ def render_decision(r):
         s += f"Stripe authorization {st['authorization_id']} on card {st.get('card_id')}. "
     if r.get("intent_id"):
         s += f"Intent {r['intent_id']}. "
-    s += f"Policy version {r.get('policy_version')}. Evidence: {json.dumps(ev, sort_keys=True)}"
+    if ev.get("month_spent_after") is not None:
+        s += f"Month-to-date spend after this: {gbp(ev['month_spent_after'])} of the {gbp(ev.get('monthly_max') or 0)} monthly cap. "
+    s += f"Policy version {r.get('policy_version')}. Evidence (all amounts in pence): {json.dumps(ev, sort_keys=True)}"
     return s
 
 
@@ -146,6 +152,8 @@ def _texts(x):
     if isinstance(x, str):
         return [x]
     if isinstance(x, dict):
+        if "search_result" in x:  # cloud results wrap the answer with dataset/tenant ids
+            return _texts(x["search_result"])
         if isinstance(x.get("text"), str):
             return [x["text"]]
         return [t for v in x.values() for t in _texts(v)]
@@ -177,8 +185,17 @@ async def recall_notes(merchant):
     return _texts(res)
 
 
+WHY_PROMPT = (
+    "You explain a spending agent's decisions from its audit records. Answer in 2-4 sentences. Always cite the "
+    "clause IDs (C1-C7) that applied or failed, the approver if any, the decision id (d_...) and the Stripe "
+    "authorization id (iauth_...). Amounts in evidence JSON are in pence; state money in pounds. "
+    "Use only facts in the records; if they don't cover the question, say so."
+)
+
+
 @_remote
 async def why(question):
     # Decisions dataset only: searching everything lets the finance notes answer "why did you pay X?".
     # If it was never synced, search raises and agent.why falls back to the ledger.
-    return _texts(await cognee.search(query_type=SearchType.GRAPH_COMPLETION, query_text=question, datasets=[DATASET]))
+    return _texts(await cognee.search(query_type=SearchType.GRAPH_COMPLETION, query_text=question, datasets=[DATASET],
+                                      system_prompt=WHY_PROMPT))

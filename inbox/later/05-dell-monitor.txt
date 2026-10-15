@@ -1,0 +1,4 @@
+merchant: Dell
+category: computers_peripherals_and_software
+amount: 189
+reason: 27-inch monitor for the new designer's desk

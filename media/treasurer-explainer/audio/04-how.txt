@@ -1,0 +1,1 @@
+﻿Treasurer extracts the request, recalls finance notes in Cognee, and checks written rules.

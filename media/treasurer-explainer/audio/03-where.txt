@@ -1,0 +1,1 @@
+﻿In this demo, purchase emails arrive as inbox files, with payments simulated in Stripe test mode.

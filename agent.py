@@ -173,9 +173,11 @@ def parse_request(text):
     return None
 
 
-def inbox(approver=None, interactive=True):
+def inbox(approver=None, interactive=True, only=None):
     os.makedirs("inbox/processed", exist_ok=True)
     files = sorted(glob.glob("inbox/*.txt"))
+    if only is not None:  # the UI can pick specific emails
+        files = [f for f in files if os.path.basename(f) in set(only)]
     if not files:
         print("inbox empty")
     for path in files:

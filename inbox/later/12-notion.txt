@@ -1,0 +1,4 @@
+merchant: Notion
+category: computer_software_stores
+amount: 480
+reason: Notion annual team plan
