@@ -1,0 +1,25 @@
+1
+00:00:00,220 --> 00:00:03,304
+Meet Treasurer, a spending agent that explains every pound.
+
+2
+00:00:04,220 --> 00:00:07,589
+Teams need faster purchases, with clear limits and accountability.
+
+3
+00:00:08,220 --> 00:00:13,183
+In this demo, purchase emails arrive as inbox files, with payments
+simulated in Stripe test mode.
+
+4
+00:00:15,220 --> 00:00:19,778
+Treasurer extracts the request, recalls finance notes in Cognee, and
+checks written rules.
+
+5
+00:00:20,720 --> 00:00:24,164
+It clears, seeks approval, holds, or declines.
+
+6
+00:00:24,720 --> 00:00:28,294
+Ask why, and get the policy clause, evidence, and decision history.
