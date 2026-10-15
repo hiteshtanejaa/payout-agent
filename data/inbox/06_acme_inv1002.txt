@@ -1,0 +1,14 @@
+From: billing@acme-design.example
+Subject: Invoice INV-1002 — October campaign assets
+
+Hi finance team,
+
+Invoice number: INV-1002
+Date: 2026-10-15
+Work: Autumn campaign illustration set
+Hours: 30
+Rate: £75.00/hour
+Total due: £2,250.00
+
+Thanks,
+Acme Design Studio

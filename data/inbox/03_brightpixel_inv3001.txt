@@ -1,0 +1,14 @@
+From: finance@brightpixel.example
+Subject: Invoice INV-3001 — October edits
+
+Hi,
+
+Invoice number: INV-3001
+Date: 2026-10-13
+Work: Product launch video edit, round 2
+Hours: 8
+Rate: £50.00/hour
+Total: £400.00
+
+Kind regards,
+Bright Pixel Ltd

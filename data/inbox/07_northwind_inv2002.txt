@@ -1,0 +1,13 @@
+From: accounts@northwind.example
+Subject: Invoice INV-2002 — API hardening
+
+Hello,
+
+Invoice number: INV-2002
+Date: 2026-10-15
+Work: API rate limiting and error handling
+Hours: 10
+Amount due: £800.00
+
+Regards,
+Northwind Dev Ltd

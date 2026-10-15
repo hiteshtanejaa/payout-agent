@@ -1,0 +1,14 @@
+From: accounts@northwind.example
+Subject: Invoice INV-2001 — Payments API milestone 1
+
+Hello,
+
+Invoice number: INV-2001
+Date: 2026-10-14
+Work: Payments API integration, milestone 1 (webhooks + reconciliation)
+Hours: 20
+Rate: £60.00/hour
+Amount due: £1,200.00
+
+Regards,
+Northwind Dev Ltd

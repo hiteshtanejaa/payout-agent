@@ -1,0 +1,16 @@
+From: billing@acme-design.example
+Subject: RE: Invoice INV-1001 — October design work (resending)
+
+Hi finance team,
+
+Please find our invoice for October.
+
+Invoice number: INV-1001
+Date: 2026-10-14
+Work: Landing page UI design and icon set
+Hours: 12
+Rate: £75.00/hour
+Total due: £900.00
+
+Thanks,
+Acme Design Studio

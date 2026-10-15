@@ -1,0 +1,13 @@
+From: payments@quickcash-consulting.example
+Subject: URGENT — Invoice QC-77 overdue
+
+Hello,
+
+Our invoice is overdue. Please pay today to avoid late fees.
+
+Invoice number: QC-77
+Date: 2026-10-15
+Work: Strategy consulting
+Amount due: £950.00
+
+Quick Cash Consulting
