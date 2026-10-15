@@ -1,7 +1,7 @@
 """The final gate: Stripe asks "may this authorization go through?" and this
 handler answers inside 2 seconds, citing the clause.
 
-Run:  uvicorn server:app --port 8000
+Run:  uvicorn server:app --port 8000      (finance UI at http://localhost:8000/)
       stripe listen --forward-to localhost:8000/stripe/webhook
 
 Nothing slow happens before the response (no LLM, no Cognee). Memory sync is
@@ -27,6 +27,7 @@ POLICY = load_policy()
 # Reasons Stripe gives when IT declined, before our code ran.
 STRIPE_DECLINE_CLAUSE = {
     "spending_controls": "C1/C2/C4 (card spending_controls, enforced by Stripe)",
+    "authorization_controls": "C1/C2/C4 (card spending_controls, enforced by Stripe)",  # name in newer API versions
     "insufficient_funds": "issuing balance (fund it in Dashboard > Balances, test mode)",
     "webhook_timeout": "webhook did not answer within 2s",
     "webhook_error": "webhook returned an error",
@@ -157,7 +158,7 @@ async def webhook(request: Request, bg: BackgroundTasks):
     return JSONResponse({"received": True})
 
 
-@app.get("/")
+@app.get("/health")
 def health():
     return {"ok": True, "policy_version": POLICY["_version"], "api_version": API_VERSION}
 
@@ -170,3 +171,130 @@ def decisions():
 @app.get("/intents")
 def intents():
     return ledger.list_intents()
+
+
+# ---------------------------------------------------------------- finance UI (ui/index.html)
+# Thin layer over the same functions the CLI uses. Routes are plain `def`, so FastAPI runs
+# them in a worker thread and the async Stripe webhook above can still answer while
+# agent.execute() is waiting on the test-helper authorization.
+import asyncio as _asyncio
+import contextlib as _contextlib
+import glob as _glob
+import io as _io
+import sys as _sys
+import threading as _threading
+
+from fastapi.responses import FileResponse
+from pydantic import BaseModel
+
+import agent
+
+_ACTION_LOCK = _threading.Lock()
+_CARD_CACHE = {}
+
+
+class _Tee(_io.TextIOBase):
+    """Keep printing to the server terminal while also capturing for the UI."""
+
+    def __init__(self, a, b):
+        self.a, self.b = a, b
+
+    def write(self, s):
+        self.a.write(s)
+        self.b.write(s)
+        return len(s)
+
+    def flush(self):
+        self.a.flush()
+
+
+def _run(fn, *args, **kwargs):
+    buf = _io.StringIO()
+    with _ACTION_LOCK, _contextlib.redirect_stdout(_Tee(_sys.__stdout__, buf)):
+        try:
+            result = fn(*args, **kwargs)
+        except SystemExit as e:  # agent.py uses sys.exit for "not cleared" etc.
+            print(f"✗ {e}")
+            result = None
+    return result, buf.getvalue()
+
+
+def _card():
+    if not _CARD_CACHE:
+        try:
+            st = agent.state()
+            _CARD_CACHE.update(id=st.get("card_id"))
+            card = stripe.issuing.Card.retrieve(st["card_id"]).to_dict()
+            _CARD_CACHE.update(last4=card.get("last4"), status=card.get("status"))
+        except Exception as e:  # the page still works without the card details
+            _CARD_CACHE.setdefault("error", str(e)[:200])
+    return dict(_CARD_CACHE)
+
+
+@app.get("/")
+def ui_page():
+    return FileResponse(os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui", "index.html"))
+
+
+@app.get("/api/state")
+def ui_state():
+    c = POLICY["clauses"]
+    return {
+        "policy": {
+            "version": POLICY["_version"],
+            "clauses": {k: {"title": v["title"], "rule": v["rule"]} for k, v in c.items()},
+            "per_transaction_max": c["C1"]["per_transaction_max"],
+            "allowed_categories": c["C2"]["allowed_categories"],
+            "escalate_above": c["C3"]["escalate_above"],
+            "approvers": c["C3"]["approvers"],
+            "monthly_max": c["C4"]["monthly_max"],
+        },
+        "card": _card(),
+        "month_spent": ledger.month_spent(),
+        "inbox_waiting": len(_glob.glob("inbox/*.txt")),
+        "intents": ledger.list_intents(),
+        "decisions": ledger.decisions(),
+        "busy": _ACTION_LOCK.locked(),
+    }
+
+
+@app.post("/api/inbox")
+def ui_process_inbox():
+    # interactive=False: escalations stay pending for the Approve button instead of input()
+    _, log = _run(agent.inbox, None, interactive=False)
+    return {"log": log}
+
+
+class ApproveBody(BaseModel):
+    approver: str
+
+
+@app.post("/api/intents/{intent_id}/approve")
+def ui_approve(intent_id: str, body: ApproveBody):
+    def go():
+        res, _ = agent.approve(intent_id, body.approver.strip())
+        if res["decision"] == "approve":
+            print(f"✓ approved by {body.approver} → clause C3 satisfied")
+            agent.execute(intent_id)
+        else:
+            print(f"✗ still {res['decision']}: {agent.clause_text(res['failed_clause'])}")
+        return res
+
+    res, log = _run(go)
+    return {"decision": (res or {}).get("decision"), "failed_clause": (res or {}).get("failed_clause"), "log": log}
+
+
+class WhyBody(BaseModel):
+    question: str
+
+
+@app.post("/api/why")
+def ui_why(body: WhyBody):
+    out = {"ledger": agent.explain_from_ledger(body.question), "memory": None, "memory_error": None}
+    if memory.HAVE_COGNEE:
+        try:
+            ans = _asyncio.run(memory.why(body.question))
+            out["memory"] = "\n".join(memory._texts(ans)) or None
+        except Exception as e:
+            out["memory_error"] = f"{type(e).__name__}: {e}"[:300]
+    return out

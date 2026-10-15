@@ -6,8 +6,10 @@ Default is COGNEE_SYNC=batch: the webhook never waits on Cognee. Run
 Set COGNEE_SYNC=live to push each decision in a background task.
 """
 import asyncio
+import functools
 import json
 import os
+import threading
 
 DATASET = "treasurer"
 NOTES_DATASET = "finance_notes"
@@ -56,6 +58,29 @@ def render_decision(r):
     return s
 
 
+_REMOTE_LOCK = threading.Lock()  # cognee keeps one global remote client; UI routes run in threads
+
+
+def _remote(fn):
+    """Run fn against Cognee Cloud when COGNEE_SERVICE_URL is set (local Cognee needs a native graph lib
+    missing on Windows). Connect and close per call: each asyncio.run() is a new loop, so a client can't be reused."""
+    @functools.wraps(fn)
+    async def wrapper(*args, **kwargs):
+        if not os.getenv("COGNEE_SERVICE_URL"):
+            return await fn(*args, **kwargs)
+        from cognee.api.v1.serve.state import get_remote_client, set_remote_client
+        with _REMOTE_LOCK:
+            await cognee.serve(url=os.environ["COGNEE_SERVICE_URL"], api_key=os.getenv("COGNEE_API_KEY", ""))
+            try:
+                return await fn(*args, **kwargs)
+            finally:
+                client = get_remote_client()
+                if client:
+                    await client.close()
+                set_remote_client(None)
+    return wrapper
+
+
 async def _add(text):
     await cognee.add(text, dataset_name=DATASET)
 
@@ -64,11 +89,13 @@ async def _cognify():
     await cognee.cognify(datasets=[DATASET])
 
 
+@_remote
 async def remember_policy(policy):
     await _add(render_policy(policy))
     await _cognify()
 
 
+@_remote
 async def remember_decision(rec):
     await _add(render_decision(rec))
     await _cognify()
@@ -91,6 +118,7 @@ def _synced_ids():
         return {line.strip() for line in f if line.strip()}
 
 
+@_remote
 async def sync_all(policy, records):
     """Push the policy once and every unsynced decision, then one cognify."""
     done = _synced_ids()
@@ -130,12 +158,14 @@ def _texts(x):
     return [str(x)]
 
 
+@_remote
 async def remember_notes(path="notes/finance_notes.md"):
     with open(path, encoding="utf-8") as f:
         await cognee.add(f.read(), dataset_name=NOTES_DATASET)
     await cognee.cognify(datasets=[NOTES_DATASET])
 
 
+@_remote
 async def recall_notes(merchant):
     """Raw note chunks about a merchant (CHUNKS = retrieval only, no LLM answer)."""
     res = await cognee.search(
@@ -147,5 +177,8 @@ async def recall_notes(merchant):
     return _texts(res)
 
 
+@_remote
 async def why(question):
-    return await cognee.search(query_type=SearchType.GRAPH_COMPLETION, query_text=question)
+    # Decisions dataset only: searching everything lets the finance notes answer "why did you pay X?".
+    # If it was never synced, search raises and agent.why falls back to the ledger.
+    return _texts(await cognee.search(query_type=SearchType.GRAPH_COMPLETION, query_text=question, datasets=[DATASET]))

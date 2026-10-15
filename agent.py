@@ -33,6 +33,8 @@ import recall
 from policy import evaluate, load_policy
 
 load_dotenv()
+for _s in (sys.stdout, sys.stderr):  # Windows pipes default to cp1252, which can't print → ✓ 📨 £
+    _s.reconfigure(encoding="utf-8", errors="replace")
 stripe.api_key = os.environ.get("STRIPE_SECRET_KEY", "")
 POLICY = load_policy()
 CURRENCY = POLICY.get("currency", "gbp")
@@ -79,6 +81,8 @@ def approve(intent_id, approver, note=""):
     it = ledger.get_intent(intent_id)
     if not it:
         sys.exit(f"no intent {intent_id}")
+    if it["status"] not in ("awaiting_approval", "held"):  # never re-clear an executed/declined intent
+        sys.exit(f"intent {intent_id} is {it['status']}, nothing to approve")
     approval = {"approver": approver, "ts": ledger.now(), "note": note, "token": "apr_" + uuid.uuid4().hex[:8]}
     mem = recall.check(it["merchant"], POLICY)  # re-check memory: a human cannot approve past an open hold
     res = evaluate(POLICY, amount=it["amount"], category=it["category"], merchant=it["merchant"],
@@ -130,13 +134,13 @@ def execute(intent_id):
     return auth
 
 
-def handle_intent(it, approver=None):
+def handle_intent(it, approver=None, interactive=True):
     """Drive an intent to completion: execute, prompt for approval, or report the decline."""
     if it["status"] == "cleared":
         return execute(it["id"])
     if it["status"] == "awaiting_approval":
         print(f"⏸ {it['id']} needs approval (C3): {it['merchant']} {gbp(it['amount'])} — {it['description']}")
-        name = approver or input("Approver name (Enter to leave pending): ").strip()
+        name = approver or (input("Approver name (Enter to leave pending): ").strip() if interactive else "")
         if not name:
             return None
         res, _ = approve(it["id"], name)
@@ -169,7 +173,7 @@ def parse_request(text):
     return None
 
 
-def inbox(approver=None):
+def inbox(approver=None, interactive=True):
     os.makedirs("inbox/processed", exist_ok=True)
     files = sorted(glob.glob("inbox/*.txt"))
     if not files:
@@ -195,7 +199,7 @@ def inbox(approver=None):
         amount = int(round(float(str(req["amount"]).replace("£", "").replace(",", "")) * 100))
         it, rec, res = propose(req["merchant"], req["category"], amount, req.get("reason", ""), origin=origin)
         print(f"policy: {res['decision'].upper()} clauses={','.join(res['clause_ids'])} failed={res['failed_clause']}")
-        handle_intent(it, approver)
+        handle_intent(it, approver, interactive)
         shutil.move(path, os.path.join("inbox/processed", os.path.basename(path)))
 
 
