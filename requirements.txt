@@ -1,0 +1,7 @@
+cognee==1.6.4
+stripe
+fastapi
+uvicorn[standard]
+pydantic
+pyyaml
+python-dotenv

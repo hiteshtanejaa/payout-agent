@@ -1,0 +1,12 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.db
+*.sqlite
+.cognee*/
+.cognee_system/
+.data_storage/
+data/stripe_accounts.json
+.DS_Store

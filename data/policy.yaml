@@ -1,0 +1,40 @@
+# Machine-enforced contractor payout policy.
+# Every rule has a clause ID. The agent cites these IDs in every decision.
+# The same clauses (in prose) live in policy.md and are loaded into Cognee memory.
+
+policy_id: FIN-POL-007
+version: "2026-10"
+currency: gbp
+
+clauses:
+  P1:
+    title: Approved payees only
+    text: Payments may only be made to contractors on the approved register with an active contract.
+    on_fail: REJECT
+  P2:
+    title: Auto-approval limit
+    text: Invoices up to £1,000.00 may be paid autonomously. Invoices above £1,000.00 require approval from the Finance Lead before payment.
+    on_fail: HOLD
+    limit_gbp: 1000
+  P3:
+    title: Monthly contract cap
+    text: Total payments to a contractor in a calendar month must not exceed the monthly cap in their contract.
+    on_fail: REJECT
+  P4:
+    title: Rate match
+    text: The invoiced amount must equal hours billed multiplied by the contracted hourly rate (tolerance 1%).
+    on_fail: HOLD
+    tolerance_pct: 1
+  P5:
+    title: No duplicate payments
+    text: An invoice number may only be paid once per contractor.
+    on_fail: REJECT
+  P6:
+    title: Daily spend ceiling
+    text: Total autonomous payouts across all contractors must not exceed £3,000.00 per day.
+    on_fail: HOLD
+    limit_gbp: 3000
+  P7:
+    title: Open disputes and finance notes
+    text: If finance memory records an open dispute, hold, or concern about a contractor, payment must be held for human review.
+    on_fail: HOLD

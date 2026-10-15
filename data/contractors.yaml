@@ -1,0 +1,24 @@
+# Approved contractor register. stripe_account_id is filled in by scripts/setup_stripe.py
+# (stored separately in data/stripe_accounts.json so this file stays clean).
+contractors:
+  - id: acme
+    name: Acme Design Studio
+    email: billing@acme-design.example
+    contract_id: CTR-ACME-2026
+    hourly_rate_gbp: 75
+    monthly_cap_gbp: 2500
+    active: true
+  - id: northwind
+    name: Northwind Dev Ltd
+    email: accounts@northwind.example
+    contract_id: CTR-NW-2026
+    hourly_rate_gbp: 60
+    monthly_cap_gbp: 4000
+    active: true
+  - id: brightpixel
+    name: Bright Pixel Ltd
+    email: finance@brightpixel.example
+    contract_id: CTR-BP-2026
+    hourly_rate_gbp: 50
+    monthly_cap_gbp: 2000
+    active: true
