@@ -8,21 +8,46 @@ Treasurer reads purchase requests from an inbox, checks them against a written p
 Stripe Issuing virtual card. Every decision records which clauses applied, and you can ask "why did you
 pay X?" afterwards.
 
+![Treasurer dashboard](docs/screenshots/dashboard.png)
+
 ## How it works
 
-```
-request email ─► LLM extracts {merchant, category, amount}      (never decides, never touches Stripe)
-              ─► Cognee recalls finance notes about the merchant (C7)
-              ─► policy.py decides: approve | escalate to a human | hold | decline
-              ─► card used ─► Stripe checks the card's spending controls (C1, C2, C4)
-                           ─► Stripe asks our webhook, which only approves what was cleared (C5)
-              ─► every decision is written to ledger/decisions.jsonl and Cognee
+```mermaid
+flowchart TD
+    A["Request email<br/>inbox/*.txt"] --> B["LLM extractor<br/>merchant · category · amount<br/><i>never decides</i>"]
+    B --> C["Policy engine · policy.py<br/>deterministic Python"]
+    N[("Cognee<br/>finance notes")] -- "C7 recall" --> C
+    C -- "decline: C1 / C2 / C4" --> L
+    C -- "hold: C7" --> L
+    C -- "escalate: over £200 (C3)" --> H["Named approver<br/>Finance UI"]
+    H -- "approved" --> P
+    C -- "approve" --> P["Use virtual card<br/>Stripe Issuing (test mode)"]
+    P --> S{"Stripe spending controls<br/>C1 · C2 · C4"}
+    S -- "over limit" --> X["Declined by Stripe"]
+    S -- "within limits" --> W["Webhook gate · server.py<br/>C5: only cleared purchases, under 2 s"]
+    W -- "approved + clause metadata" --> T["Captured payment"]
+    X --> L
+    W --> L[("Audit ledger<br/>decisions.jsonl")]
+    T --> L
+    L -- "sync-memory" --> M[("Cognee<br/>decisions + policy")]
+    M --> Q["Ask why<br/>cites clauses, approver, Stripe IDs"]
+    L --> Q
 ```
 
 - **Deterministic policy.** Plain Python in `policy.py` makes every decision; the LLM only reads emails.
 - **Guardrails in the network.** C1, C2 and C4 are also set on the card itself, so Stripe enforces them even if our code is down.
 - **Fails closed.** If the memory lookup fails, the purchase is held.
 - **Explains every pound.** Clause IDs, decision ID and approver go into the Stripe authorization's metadata and the ledger.
+
+## Screenshots
+
+**Every decision, with its evidence.** Each row shows the clauses checked. Click a row to see the approver, month-to-date spend and Stripe IDs.
+
+![Every decision](docs/screenshots/decisions.png)
+
+**Ask why.** The answer is built from the audit trail and from Cognee memory, and cites the clauses, the approver and the Stripe authorization.
+
+![Ask why](docs/screenshots/ask-why.png)
 
 ## The policy (`policy.yaml`)
 
