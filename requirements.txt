@@ -1,7 +1,6 @@
-cognee==1.6.4
-stripe
+stripe>=10
 fastapi
 uvicorn[standard]
-pydantic
 pyyaml
 python-dotenv
+litellm>=1.83.7,<1.97.0   # cognee 1.6.4 range

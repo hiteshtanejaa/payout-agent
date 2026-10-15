@@ -8,5 +8,6 @@ __pycache__/
 .cognee*/
 .cognee_system/
 .data_storage/
-data/stripe_accounts.json
+fallback_connect/data/stripe_accounts.json
+inbox/processed/
 .DS_Store

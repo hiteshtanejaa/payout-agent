@@ -1,0 +1,4 @@
+merchant: Pret
+category: eating_places_restaurants
+amount: 42.50
+reason: Team lunch

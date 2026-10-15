@@ -1,3 +1,14 @@
+# PIVOT 18:55 — we are now building "Treasurer" (repo root), not the Connect payout agent
+
+Treasurer = policy-gated Stripe **Issuing** card. Root files: agent.py (inbox -> extract -> propose -> approve -> execute, `why`),
+extractor.py (LLM: free-text email -> fields, never decides), recall.py + memory.py (C7: Cognee recalls finance notes,
+plain Python decides; lookup error -> HOLD), policy.yaml/policy.py (C1–C7, pure evaluator), server.py (2s
+issuing_authorization.request gate, clause metadata), ledger.py (append-only JSONL), replay.py (hash 8552ceded9b0ced2).
+`fallback_connect/` = the earlier Connect design below (its `data/...` and `scripts/setup_stripe.py` paths now live there; `app/` was never built), kept as the fallback if Issuing will not activate. `scripts/check_connections.py` is the shared preflight.
+Same core rules still apply: deterministic policy, fail closed, test mode only, secrets in .env.
+
+---
+
 # Payout Agent — Briefcase × Stripe Hackathon (Track 01: Agents that spend)
 
 Build window: 18:00–21:00, 15 Oct 2026. Demo video ≤ 2 min. Public GitHub repo. Stripe TEST MODE only.

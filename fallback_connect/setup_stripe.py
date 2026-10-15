@@ -19,11 +19,11 @@ import stripe
 import yaml
 from dotenv import load_dotenv
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent
 ACCOUNTS_FILE = ROOT / "data" / "stripe_accounts.json"
 FUND_PENCE = 1_000_000  # £10,000 of test money
 
-load_dotenv(ROOT / ".env")
+load_dotenv(ROOT.parent / ".env")
 stripe.api_key = os.environ.get("STRIPE_SECRET_KEY", "")
 if not stripe.api_key.startswith(("sk_test_", "rk_test_")):
     sys.exit("Refusing to run: STRIPE_SECRET_KEY is not a TEST key.")
@@ -91,8 +91,8 @@ def create_account(c: dict) -> str:
 
 def main() -> None:
     platform = stripe.Account.retrieve()
-    print(f"Platform {platform.id} country={platform.get('country')}")
-    if platform.get("country") != "GB":
+    print(f"Platform {platform.id} country={platform.country}")
+    if platform.country != "GB":
         sys.exit("Platform account is not GB — switch to the UK account's test key.")
 
     fund_platform()
@@ -104,7 +104,7 @@ def main() -> None:
             accounts[c["id"]] = create_account(c)
         acct = stripe.Account.retrieve(accounts[c["id"]])
         due = acct.requirements.currently_due if acct.requirements else []
-        print(f"  {c['name']:<22} {acct.id}  transfers={acct.capabilities.get('transfers')}  "
+        print(f"  {c['name']:<22} {acct.id}  transfers={getattr(acct.capabilities, 'transfers', None)}  "
               f"currently_due={due or 'none'}")
     ACCOUNTS_FILE.write_text(json.dumps(accounts, indent=2))
     print(f"Saved {ACCOUNTS_FILE.relative_to(ROOT)}")

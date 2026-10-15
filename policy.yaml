@@ -1,0 +1,48 @@
+version: 1
+name: Treasurer spending policy
+currency: gbp
+# Amounts are in pence. C1, C2 and C4 are ALSO pushed into the Stripe card's
+# spending_controls (see setup_stripe.py), so Stripe enforces them even if the
+# webhook is dead. C3 and C5 are enforced by the real-time authorization webhook.
+# C7 is checked at proposal and approval time (never inside the 2-second webhook):
+# Cognee retrieves the notes, plain Python matches them, so the decision stays deterministic.
+clauses:
+  C1:
+    title: Per-transaction cap
+    rule: No single purchase may exceed £500.
+    per_transaction_max: 50000
+  C2:
+    title: Allowed merchant categories
+    rule: Spend only on software, computer equipment, office furniture and advertising. Every other merchant category is blocked.
+    allowed_categories:
+      - computer_software_stores
+      - computers_peripherals_and_software
+      - office_and_commercial_furniture
+      - advertising_services
+  C3:
+    title: Human approval above £200
+    rule: A purchase over £200 needs approval from a named approver before the card is used.
+    escalate_above: 20000
+    approvers:
+      - sarthak
+  C4:
+    title: Monthly cap
+    rule: Total card spend may not exceed £2,000 in a calendar month.
+    monthly_max: 200000
+  C5:
+    title: Only proposed purchases
+    rule: The card may only be charged for a purchase the agent proposed and the policy cleared. Merchant must match and the amount must be within 2% of the cleared intent.
+    amount_tolerance: 0.02
+  C7:
+    title: Memory check before spending
+    rule: Before a purchase is cleared, the agent recalls the finance team's notes about the merchant from Cognee memory. If a note about that merchant says hold, dispute, under review or do not pay, the purchase is HELD. If the memory lookup fails, the purchase is also HELD (fail closed).
+    hold_keywords:
+      - hold
+      - dispute
+      - under review
+      - do not pay
+      - suspended
+      - frozen
+  C6:
+    title: Explain every pound
+    rule: Every decision records the clauses applied and the evidence before the answer is sent to Stripe, and can be queried afterwards.

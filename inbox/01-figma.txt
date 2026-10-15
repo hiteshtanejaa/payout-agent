@@ -1,0 +1,4 @@
+merchant: Figma
+category: computer_software_stores
+amount: 120
+reason: Figma Professional seat for the new designer

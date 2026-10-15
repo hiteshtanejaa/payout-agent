@@ -32,9 +32,9 @@ try:
         acct = stripe.Account.retrieve()
         bal = stripe.Balance.retrieve()
         currencies = sorted({b["currency"] for b in bal["available"]})
-        report("Stripe", acct.get("country") == "GB",
-               f"account {acct['id']} country={acct.get('country')} "
-               f"default_currency={acct.get('default_currency')} balance currencies={currencies}")
+        report("Stripe", acct.country == "GB",
+               f"account {acct['id']} country={acct.country} "
+               f"default_currency={acct.default_currency} balance currencies={currencies}")
         if key.startswith("rk_test_"):
             print("       note: restricted key — needs write access to Accounts (Connect), "
                   "Transfers, PaymentIntents and read on Balance. A standard sk_test_ key is simpler.")
@@ -75,5 +75,5 @@ else:
     except Exception as e:  # noqa: BLE001
         report("Cognee Cloud", False, f"{type(e).__name__}: {e}")
 
-print("\nAll good — run: python scripts/setup_stripe.py" if ok else "\nFix the FAIL lines above first.")
+print("\nAll good — run: python setup_stripe.py" if ok else "\nFix the FAIL lines above first.")
 sys.exit(0 if ok else 1)
